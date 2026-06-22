@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>移工人數資料表填列</title>
+    <style>
+      :root {
+        color: #172033;
+        background: #f4f7fb;
+        font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      main { width: min(1380px, calc(100vw - 32px)); margin: 24px auto; }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: end;
+        margin-bottom: 14px;
+      }
+      h1 { margin: 0 0 6px; color: #15398a; font-size: 28px; }
+      p { margin: 0; color: #526078; }
+      label { display: grid; gap: 6px; font-weight: 700; }
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid #c8d2e3;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font: inherit;
+        background: #fff;
+      }
+      input { min-height: 36px; }
+      textarea {
+        min-height: 76px;
+        resize: vertical;
+        line-height: 1.45;
+      }
+      .editable-cell {
+        display: grid;
+        grid-template-columns: minmax(82px, 1fr) 32px;
+        gap: 6px;
+        align-items: center;
+      }
+      .editable-cell input[readonly] {
+        border-color: transparent;
+        background: transparent;
+        font-weight: inherit;
+        padding-left: 0;
+      }
+      .editable-cell input {
+        max-width: 10em;
+      }
+      .edit-btn,
+      .add-row-btn {
+        border-radius: 6px;
+        min-height: 32px;
+        padding: 6px 8px;
+        background: #475569;
+        font-weight: 700;
+      }
+      .add-row {
+        background: #f8fafc;
+      }
+      .add-row-btn {
+        background: #334155;
+      }
+      .date { min-width: 190px; }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 11px 16px;
+        color: #fff;
+        background: #1f5fbf;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:nth-child(2) { background: #14735c; }
+      button:disabled { cursor: wait; opacity: .62; }
+      #status { color: #526078; font-weight: 700; }
+      .sheet {
+        overflow: auto;
+        border: 1px solid #cfd8e6;
+        border-radius: 8px;
+        background: #fff;
+      }
+      table { width: 100%; min-width: 1080px; border-collapse: collapse; }
+      th, td {
+        border-bottom: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        padding: 8px;
+        vertical-align: middle;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #fff200;
+        text-align: left;
+        white-space: nowrap;
+      }
+      td:nth-child(4), td:nth-child(5), td:nth-child(6), td:nth-child(7) { width: 92px; }
+      td:nth-child(8) { min-width: 360px; }
+      .office { width: 118px; background: #111; color: #111; font-size: 13px; }
+      .office:not(:empty) { color: #fff; }
+      .code { font-weight: 800; }
+      .totals {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin: 14px 0;
+      }
+      .total {
+        min-width: 130px;
+        border: 1px solid #d6deeb;
+        border-radius: 8px;
+        background: #fff;
+        padding: 10px 12px;
+      }
+      .total strong { display: block; color: #15398a; font-size: 20px; }
+      @media (max-width: 720px) {
+        .top, .actions { align-items: stretch; flex-direction: column; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="top">
+        <div>
+          <h1>移工人數資料表填列</h1>
+          <p>承辦人填完月底資料後，按鈕下載 3 個 Excel 檔。</p>
+        </div>
+        <label class="date">
+          統計日期
+          <input id="date" type="date" />
+        </label>
+      </section>
+
+      <section class="actions">
+        <button id="downloadStats" type="button">下載移工人數統計表</button>
+        <button id="downloadAnalysis" type="button">下載第2表 移工國籍人數分析</button>
+        <button id="downloadManagement" type="button">下載移工管理次數統計表</button>
+        <span id="status" role="status"></span>
+      </section>
+
+      <section class="totals" aria-label="合計">
+        <div class="total">泰國<strong id="sumThailand">0</strong></div>
+        <div class="total">印尼<strong id="sumIndonesia">0</strong></div>
+        <div class="total">菲律賓<strong id="sumPhilippines">0</strong></div>
+        <div class="total">越南<strong id="sumVietnam">0</strong></div>
+        <div class="total">施工人數<strong id="sumAll">0</strong></div>
+      </section>
+
+      <section class="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th>工程處</th>
+              <th>區段標</th>
+              <th>廠商名稱</th>
+              <th>泰國</th>
+              <th>印尼</th>
+              <th>菲律賓</th>
+              <th>越南</th>
+              <th>宿舍地址</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </section>
+
+      <section class="top subhead">
+        <div>
+          <h1>移工管理次數統計表</h1>
+          <p>請填各區段標管理稽查日期，例如：1/1、2/2、3/3。</p>
+        </div>
+      </section>
+
+      <section class="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th>工程處</th>
+              <th>區段標</th>
+              <th>稽查日期</th>
+            </tr>
+          </thead>
+          <tbody id="managementRows"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const lineItems = [
+        { office: "第一區工程處", code: "CQ860", vendor: "皇昌工程", group: 1 },
+        { office: "", code: "CQ861", vendor: "新亞營造", group: 1 },
+        { office: "", code: "CQ870", vendor: "達欣工程", group: 1 },
+        { office: "", code: "CF680A", vendor: "工信工程", group: 1 },
+        { office: "", code: "CF680B", vendor: "皇昌工程", group: 1 },
+        { office: "", code: "CF690A", vendor: "皇昌工程", group: 1 },
+        { office: "", code: "CF690B", vendor: "大陸工程", group: 1 },
+        { office: "", code: "CF690C", vendor: "皇昌工程", group: 1 },
+        { office: "", code: "CF710", vendor: "皇昌/奧村組", group: 1 },
+        { office: "", code: "IZ0007", vendor: "崇偉營造", group: 1 },
+        { office: "第二區工程處", code: "CQ840", vendor: "大陸工程", group: 2 },
+        { office: "", code: "CQ842", vendor: "大陸工程", group: 2 },
+        { office: "", code: "CQ850A", vendor: "大陸工程", group: 2 },
+        { office: "", code: "CQ850", vendor: "榮工工程", group: 2 },
+        { office: "", code: "CR580C", vendor: "中華工程", group: 2 },
+        { office: "", code: "CQ811", vendor: "中鼎/晟群", group: 2 },
+        { office: "", code: "CF680C", vendor: "大陸工程", group: 2 },
+        { office: "", code: "CF670A", vendor: "大陸工程", group: 2 },
+        { office: "", code: "CF670", vendor: "大陸工程", group: 2 },
+      ];
+      const managementExtraItems = [
+        { office: "", code: "CF720", group: 1 },
+      ];
+
+      const tbody = document.querySelector("#rows");
+      const managementTbody = document.querySelector("#managementRows");
+      const statusEl = document.querySelector("#status");
+      const dateInput = document.querySelector("#date");
+      const totalIds = ["sumThailand", "sumIndonesia", "sumPhilippines", "sumVietnam", "sumAll"];
+
+      function lastDayOfCurrentMonth() {
+        const now = new Date();
+        const value = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const yyyy = value.getFullYear();
+        const mm = String(value.getMonth() + 1).padStart(2, "0");
+        const dd = String(value.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function createInput(name, type = "number") {
+        const input = document.createElement(type === "textarea" ? "textarea" : "input");
+        input.name = name;
+        if (type !== "textarea") input.type = type;
+        if (type === "textarea") input.rows = 3;
+        if (type === "number") {
+          input.min = "0";
+          input.step = "1";
+          input.inputMode = "numeric";
+        }
+        input.addEventListener("input", updateTotals);
+        return input;
+      }
+
+      function createEditableField(name, value, className = "") {
+        const wrap = document.createElement("div");
+        wrap.className = "editable-cell";
+        const input = document.createElement("input");
+        input.name = name;
+        input.type = "text";
+        input.value = value || "";
+        input.maxLength = 10;
+        input.size = 10;
+        input.readOnly = true;
+        if (className) input.className = className;
+        input.addEventListener("input", () => {
+          if (input.value.length > 10) input.value = input.value.slice(0, 10);
+        });
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "edit-btn";
+        button.title = "修改";
+        button.textContent = "✎";
+        button.addEventListener("click", () => {
+          input.readOnly = !input.readOnly;
+          if (!input.readOnly) {
+            input.focus();
+            input.select();
+          }
+        });
+        input.addEventListener("blur", () => {
+          input.readOnly = true;
+        });
+
+        wrap.append(input, button);
+        return wrap;
+      }
+
+      function createPersonRow(item) {
+        const tr = document.createElement("tr");
+        tr.dataset.group = item.group;
+        tr.innerHTML = `
+          <td class="office">${item.office}</td>
+          <td></td>
+          <td></td>
+          <td></td><td></td><td></td><td></td><td></td>
+        `;
+        tr.children[1].append(createEditableField("code", item.code, "code"));
+        tr.children[2].append(createEditableField("vendor", item.vendor));
+        tr.children[3].append(createInput("thailand"));
+        tr.children[4].append(createInput("indonesia"));
+        tr.children[5].append(createInput("philippines"));
+        tr.children[6].append(createInput("vietnam"));
+        tr.children[7].append(createInput("address", "textarea"));
+        return tr;
+      }
+
+      function createManagementRow(item) {
+        const tr = document.createElement("tr");
+        tr.dataset.group = item.group;
+        tr.innerHTML = `
+          <td class="office">${item.office}</td>
+          <td></td>
+          <td></td>
+        `;
+        tr.children[1].append(createEditableField("managementCode", item.code, "code"));
+        tr.children[2].append(createInput("inspectionDates", "text"));
+        return tr;
+      }
+
+      function createAddRow(group, colspan, label, handler) {
+        const tr = document.createElement("tr");
+        tr.className = "add-row";
+        tr.dataset.group = group;
+        const td = document.createElement("td");
+        td.colSpan = colspan;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "add-row-btn";
+        button.textContent = label;
+        button.addEventListener("click", handler);
+        td.append(button);
+        tr.append(td);
+        return tr;
+      }
+
+      function addPersonRow(group) {
+        const row = createPersonRow({ office: "", code: "", vendor: "", group });
+        const addRow = tbody.querySelector(`tr.add-row[data-group="${group}"]`);
+        tbody.insertBefore(row, addRow);
+        const code = row.querySelector('[name="code"]');
+        code.readOnly = false;
+        code.focus();
+      }
+
+      function addManagementRow(group) {
+        const row = createManagementRow({ office: "", code: "", group });
+        const addRow = managementTbody.querySelector(`tr.add-row[data-group="${group}"]`);
+        managementTbody.insertBefore(row, addRow);
+        const code = row.querySelector('[name="managementCode"]');
+        code.readOnly = false;
+        code.focus();
+      }
+
+      function renderRows() {
+        tbody.innerHTML = "";
+        for (const item of lineItems.filter((line) => line.group === 1)) tbody.append(createPersonRow(item));
+        tbody.append(createAddRow(1, 8, "＋ 新增第一區標別", () => addPersonRow(1)));
+        for (const item of lineItems.filter((line) => line.group === 2)) tbody.append(createPersonRow(item));
+        tbody.append(createAddRow(2, 8, "＋ 新增第二區標別", () => addPersonRow(2)));
+      }
+
+      function renderManagementRows() {
+        managementTbody.innerHTML = "";
+        const group1 = [
+          ...lineItems.filter((line) => line.group === 1).map(({ office, code, group }) => ({ office, code, group })),
+          ...managementExtraItems,
+        ];
+        for (const item of group1) managementTbody.append(createManagementRow(item));
+        managementTbody.append(createAddRow(1, 3, "＋ 新增第一區標別", () => addManagementRow(1)));
+        for (const item of lineItems.filter((line) => line.group === 2).map(({ office, code, group }) => ({ office, code, group }))) {
+          managementTbody.append(createManagementRow(item));
+        }
+        managementTbody.append(createAddRow(2, 3, "＋ 新增第二區標別", () => addManagementRow(2)));
+      }
+
+      function numberOrBlank(value) {
+        if (value === "") return "";
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0) throw new Error("人數欄位只能輸入 0 或正整數。");
+        return Math.trunc(numeric);
+      }
+
+      function collectRows() {
+        return [...tbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="code"]').value.trim(),
+          vendor: tr.querySelector('[name="vendor"]').value.trim(),
+          thailand: numberOrBlank(tr.querySelector('[name="thailand"]').value),
+          indonesia: numberOrBlank(tr.querySelector('[name="indonesia"]').value),
+          philippines: numberOrBlank(tr.querySelector('[name="philippines"]').value),
+          vietnam: numberOrBlank(tr.querySelector('[name="vietnam"]').value),
+          address: tr.querySelector('[name="address"]').value.trim(),
+        }));
+      }
+
+      function collectManagementRows() {
+        return [...managementTbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="managementCode"]').value.trim(),
+          dates: tr.querySelector('[name="inspectionDates"]').value.trim(),
+        }));
+      }
+
+      function updateTotals() {
+        const totals = [0, 0, 0, 0];
+        for (const row of collectRows()) {
+          totals[0] += Number(row.thailand || 0);
+          totals[1] += Number(row.indonesia || 0);
+          totals[2] += Number(row.philippines || 0);
+          totals[3] += Number(row.vietnam || 0);
+        }
+        const all = totals.reduce((sum, value) => sum + value, 0);
+        [...totals, all].forEach((value, i) => document.querySelector(`#${totalIds[i]}`).textContent = value);
+      }
+
+      function rocDateParts() {
+        const value = dateInput.value;
+        if (!value) throw new Error("請選擇統計日期。");
+        const [year, month, day] = value.split("-").map(Number);
+        const rocYear = year - 1911;
+        return {
+          sheet: `${rocYear}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`,
+          label: `${rocYear}.${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")}`,
+        };
+      }
+
+      function xmlEscape(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function colName(index) {
+        let name = "";
+        while (index > 0) {
+          const rem = (index - 1) % 26;
+          name = String.fromCharCode(65 + rem) + name;
+          index = Math.floor((index - 1) / 26);
+        }
+        return name;
+      }
+
+      function cellXml(row, col, value, style = 0) {
+        if (value === "" || value === null || value === undefined) return "";
+        const ref = `${colName(col)}${row}`;
+        const styleAttr = style ? ` s="${style}"` : "";
+        if (typeof value === "object" && value.formula) {
+          return `<c r="${ref}"${styleAttr}><f>${xmlEscape(value.formula)}</f><v>0</v></c>`;
+        }
+        if (typeof value === "number") {
+          return `<c r="${ref}"${styleAttr}><v>${value}</v></c>`;
+        }
+          return `<c r="${ref}" t="inlineStr"${styleAttr}><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+      }
+
+      function sheetXml(rows, options = {}) {
+        const rowXml = rows.map((row, i) => {
+          const rowNumber = i + 1;
+          const cells = row.map((cell, j) => cellXml(rowNumber, j + 1, cell.value, cell.style)).join("");
+          const ht = row.height ? ` ht="${row.height}" customHeight="1"` : "";
+          return `<row r="${rowNumber}"${ht}>${cells}</row>`;
+        }).join("");
+        const cols = (options.cols || []).map((width, i) =>
+          `<col min="${i + 1}" max="${i + 1}" width="${width}" customWidth="1"/>`
+        ).join("");
+        const merges = (options.merges || []).map((ref) => `<mergeCell ref="${ref}"/>`).join("");
+        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetViews><sheetView workbookViewId="0"/></sheetViews>
+  <sheetFormatPr defaultRowHeight="18"/>
+  ${cols ? `<cols>${cols}</cols>` : ""}
+  <sheetData>${rowXml}</sheetData>
+  ${merges ? `<mergeCells count="${options.merges.length}">${merges}</mergeCells>` : ""}
+</worksheet>`;
+      }
+
+      function makeRow(values, styles = [], height = null) {
+        return {
+          height,
+          map(callback) { return values.map(callback); },
+          cells: values.map((value, i) => ({ value, style: styles[i] || styles[0] || 0 })),
+        };
+      }
+
+      function row(values, styles = [], height = null) {
+        return { height, map: undefined, values, cells: values.map((value, i) => ({ value, style: styles[i] || styles[0] || 0 })) };
+      }
+
+      function makeWorkbookXml(date, statsSheetXml, analysisSheetXml) {
+        const safeStatsName = xmlEscape(date.sheet);
+        const safeAnalysisName = xmlEscape("Q各線別人數及國籍分析統計表");
+        const files = {
+          "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`,
+          "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`,
+          "docProps/core.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"><dc:title>移工人數資料表</dc:title><dc:creator>移工人數資料表填列網頁</dc:creator></cp:coreProperties>`,
+          "docProps/app.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>移工人數資料表填列網頁</Application></Properties>`,
+          "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="${safeStatsName}" sheetId="1" r:id="rId1"/>
+    <sheet name="${safeAnalysisName}" sheetId="2" r:id="rId2"/>
+  </sheets>
+</workbook>`,
+          "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`,
+          "xl/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="5"><font><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="20"/><color rgb="FF0000CC"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft JhengHei"/></font><font><sz val="14"/><color rgb="FFFF0000"/><name val="Microsoft JhengHei"/></font></fonts>
+  <fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF000000"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFCEB"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/></patternFill></fill></fills>
+  <borders count="2"><border/><border><left style="thin"><color rgb="FFD9E1F2"/></left><right style="thin"><color rgb="FFD9E1F2"/></right><top style="thin"><color rgb="FFD9E1F2"/></top><bottom style="thin"><color rgb="FFD9E1F2"/></bottom></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="4" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="1" applyFill="1" applyBorder="1"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`,
+          "xl/worksheets/sheet1.xml": statsSheetXml,
+          "xl/worksheets/sheet2.xml": analysisSheetXml,
+        };
+        return files;
+      }
+
+      function makeNationalityAnalysisWorkbookXml(date, analysisSheetXml, statsSheetXml) {
+        const files = makeWorkbookXml(date, statsSheetXml, analysisSheetXml);
+        const safeStatsName = xmlEscape(date.sheet);
+        const safeAnalysisName = xmlEscape("Q各線別人數及國籍分析統計表");
+        files["xl/workbook.xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="${safeAnalysisName}" sheetId="1" r:id="rId1"/>
+    <sheet name="${safeStatsName}" sheetId="2" r:id="rId2"/>
+  </sheets>
+</workbook>`;
+        files["xl/worksheets/sheet1.xml"] = analysisSheetXml;
+        files["xl/worksheets/sheet2.xml"] = statsSheetXml;
+        return files;
+      }
+
+      function makeSingleSheetWorkbookXml(sheetName, worksheetXml) {
+        const safeSheetName = xmlEscape(sheetName);
+        return {
+          "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`,
+          "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`,
+          "docProps/core.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>移工管理次數統計表</dc:title><dc:creator>移工人數資料表填列網頁</dc:creator></cp:coreProperties>`,
+          "docProps/app.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>移工人數資料表填列網頁</Application></Properties>`,
+          "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="${safeSheetName}" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`,
+          "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`,
+          "xl/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="4"><font><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="16"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft JhengHei"/></font></fonts>
+  <fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF000000"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFCEB"/></patternFill></fill></fills>
+  <borders count="2"><border/><border><left style="thin"><color rgb="FFD9E1F2"/></left><right style="thin"><color rgb="FFD9E1F2"/></right><top style="thin"><color rgb="FFD9E1F2"/></top><bottom style="thin"><color rgb="FFD9E1F2"/></bottom></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`,
+          "xl/worksheets/sheet1.xml": worksheetXml,
+        };
+      }
+
+      function crc32(bytes) {
+        let table = crc32.table;
+        if (!table) {
+          table = crc32.table = new Uint32Array(256);
+          for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+            table[i] = c >>> 0;
+          }
+        }
+        let crc = 0xFFFFFFFF;
+        for (const byte of bytes) crc = table[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+
+      function push16(out, value) { out.push(value & 255, (value >>> 8) & 255); }
+      function push32(out, value) { out.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255); }
+
+      function makeZip(files) {
+        const encoder = new TextEncoder();
+        const out = [];
+        const central = [];
+        let offset = 0;
+        const now = new Date();
+        const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+        const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+
+        for (const [name, content] of Object.entries(files)) {
+          const nameBytes = encoder.encode(name);
+          const data = encoder.encode(content);
+          const crc = crc32(data);
+          const localOffset = offset;
+          push32(out, 0x04034b50); push16(out, 20); push16(out, 0x0800); push16(out, 0);
+          push16(out, dosTime); push16(out, dosDate); push32(out, crc);
+          push32(out, data.length); push32(out, data.length); push16(out, nameBytes.length); push16(out, 0);
+          out.push(...nameBytes, ...data);
+          offset = out.length;
+
+          push32(central, 0x02014b50); push16(central, 20); push16(central, 20); push16(central, 0x0800); push16(central, 0);
+          push16(central, dosTime); push16(central, dosDate); push32(central, crc);
+          push32(central, data.length); push32(central, data.length); push16(central, nameBytes.length);
+          push16(central, 0); push16(central, 0); push16(central, 0); push16(central, 0); push32(central, 0); push32(central, localOffset);
+          central.push(...nameBytes);
+        }
+
+        const centralOffset = out.length;
+        out.push(...central);
+        push32(out, 0x06054b50); push16(out, 0); push16(out, 0); push16(out, Object.keys(files).length);
+        push16(out, Object.keys(files).length); push32(out, central.length); push32(out, centralOffset); push16(out, 0);
+        return new Blob([new Uint8Array(out)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      }
+
+      function buildWorkbookBlob() {
+        const date = rocDateParts();
+        const rows = collectRows();
+        const statsRows = [
+          row([`捷運工程僱用移工人數統計表    統計日期：${date.label}`, "", "", "", "", "", "", "", ""], [1], 32),
+          row(["工程處", "區段標", "廠商名稱", "國籍\n泰國", "國籍\n印尼", "國籍\n菲律賓", "國籍\n越南", "施工人數", "宿舍地址"], [2], 26),
+        ];
+        rows.forEach((item, index) => {
+          const excelRow = index + 3;
+          const addressLines = String(item.address || "").split(/\r?\n/).length;
+          const rowHeight = Math.max(index === 14 ? 76 : 26, 22 + addressLines * 18);
+          statsRows.push(row([
+            item.office,
+            item.code,
+            item.vendor,
+            item.thailand,
+            item.indonesia,
+            item.philippines,
+            item.vietnam,
+            { formula: `SUM(D${excelRow}:G${excelRow})` },
+            item.address,
+          ], [0, 5, 0, 4, 4, 4, 4, 0, 4], rowHeight));
+        });
+        const lastDataRow = rows.length + 2;
+        statsRows.push(row(["合計", "", "", "", "", "", "", { formula: `SUM(H3:H${lastDataRow})` }, ""], [6], 26));
+        statsRows.push(row(["泰籍人數", { formula: `SUM(D3:D${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+        statsRows.push(row(["印尼人數", { formula: `SUM(E3:E${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+        statsRows.push(row(["菲律賓人數", { formula: `SUM(F3:F${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+        statsRows.push(row(["越南人數", { formula: `SUM(G3:G${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+
+        const analysisRows = [
+          row(["捷運工程僱用移工人數-分析", ""], [1], 38),
+          row(["工程名稱", "僱用人數總計"], [2], 32),
+          row(["捷運（含代辦）工程僱用移工人數", { formula: "SUM(B4:B7)" }], [0, 5], 40),
+          row(["萬大線", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"CQ*",'${date.sheet}'!H3:H${lastDataRow})` }], [0, 0], 28),
+          row(["信義線東延段", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"CR*",'${date.sheet}'!H3:H${lastDataRow})` }], [0, 0], 28),
+          row(["環狀線", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"CF*",'${date.sheet}'!H3:H${lastDataRow})` }], [0, 0], 28),
+          row(["(代辦)浩然敬老院重建工程", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"IZ*",'${date.sheet}'!H3:H${lastDataRow})` }], [7, 7], 28),
+          row(["", ""], [6], 8),
+          row(["泰籍移工", { formula: `SUM('${date.sheet}'!D3:D${lastDataRow})` }], [8, 8], 28),
+          row(["印尼籍移工", { formula: `SUM('${date.sheet}'!E3:E${lastDataRow})` }], [8, 8], 28),
+          row(["菲律賓籍移工", { formula: `SUM('${date.sheet}'!F3:F${lastDataRow})` }], [8, 8], 28),
+          row(["越南籍移工", { formula: `SUM('${date.sheet}'!G3:G${lastDataRow})` }], [8, 8], 28),
+        ];
+
+        const statsSheetXml = sheetXml(statsRows.map((r) => Object.assign(r.cells, { height: r.height })), {
+          cols: [14, 12, 16, 10, 10, 12, 10, 12, 44],
+          merges: ["A1:I1"],
+        });
+        const analysisSheetXml = sheetXml(analysisRows.map((r) => Object.assign(r.cells, { height: r.height })), {
+          cols: [36, 24],
+          merges: ["A1:B1"],
+        });
+        const files = makeWorkbookXml(date, statsSheetXml, analysisSheetXml);
+        const analysisFiles = makeNationalityAnalysisWorkbookXml(date, analysisSheetXml, statsSheetXml);
+        return { blob: makeZip(files), analysisBlob: makeZip(analysisFiles), date };
+      }
+
+      function buildManagementWorkbookBlob() {
+        const date = rocDateParts();
+        const rows = collectManagementRows();
+        const rocYear = date.sheet.slice(0, -4);
+        const managementRows = [
+          row(["臺北市政府捷運工程局所屬區段標僱用移工管理稽查表", "", ""], [1], 30),
+          row(["工程處", "區段標", "稽查日期"], [2], 26),
+        ];
+        rows.forEach((item) => {
+          managementRows.push(row([
+            item.office,
+            item.code,
+            item.dates,
+          ], [0, 5, 4], 28));
+        });
+        const worksheetXml = sheetXml(managementRows.map((r) => Object.assign(r.cells, { height: r.height })), {
+          cols: [18, 16, 58],
+          merges: ["A1:C1"],
+        });
+        const files = makeSingleSheetWorkbookXml(rocYear, worksheetXml);
+        return { blob: makeZip(files), date, rocYear };
+      }
+
+      function download(kind) {
+        try {
+          statusEl.textContent = "正在產生 Excel...";
+          const result = kind === "management" ? buildManagementWorkbookBlob() : buildWorkbookBlob();
+          const date = result.date;
+          const blob = kind === "analysis" ? result.analysisBlob : result.blob;
+          const filename = kind === "stats"
+            ? `移工人數統計表-${date.sheet}.xlsx`
+            : kind === "analysis"
+              ? `移工國籍人數分析-${date.sheet}.xlsx`
+              : `移工管理次數統計表-${result.rocYear}.xlsx`;
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = filename;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+          statusEl.textContent = `已下載：${filename}`;
+        } catch (error) {
+          statusEl.textContent = error.message;
+        }
+      }
+
+      dateInput.value = lastDayOfCurrentMonth();
+      renderRows();
+      renderManagementRows();
+      updateTotals();
+      document.querySelector("#downloadStats").addEventListener("click", () => download("stats"));
+      document.querySelector("#downloadAnalysis").addEventListener("click", () => download("analysis"));
+      document.querySelector("#downloadManagement").addEventListener("click", () => download("management"));
+    </script>
+  </body>
+</html>
