@@ -85,9 +85,11 @@
         font-weight: 700;
         cursor: pointer;
       }
-      button:nth-child(2) { background: #14735c; }
+      #downloadAnalysis { background: #14735c; }
+      #importPrevious { background: #7c3aed; }
       button:disabled { cursor: wait; opacity: .62; }
       #status { color: #526078; font-weight: 700; }
+      .visually-hidden { display: none; }
       .sheet {
         overflow: auto;
         border: 1px solid #cfd8e6;
@@ -147,6 +149,8 @@
       </section>
 
       <section class="actions">
+        <button id="importPrevious" type="button">匯入上個月資料</button>
+        <input id="importFiles" class="visually-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple />
         <button id="downloadStats" type="button">下載移工人數統計表</button>
         <button id="downloadAnalysis" type="button">下載第2表 移工國籍人數分析</button>
         <button id="downloadManagement" type="button">下載移工管理次數統計表</button>
@@ -230,6 +234,7 @@
       const managementTbody = document.querySelector("#managementRows");
       const statusEl = document.querySelector("#status");
       const dateInput = document.querySelector("#date");
+      const importFilesInput = document.querySelector("#importFiles");
       const totalIds = ["sumThailand", "sumIndonesia", "sumPhilippines", "sumVietnam", "sumAll"];
 
       function lastDayOfCurrentMonth() {
@@ -416,6 +421,265 @@
         }
         const all = totals.reduce((sum, value) => sum + value, 0);
         [...totals, all].forEach((value, i) => document.querySelector(`#${totalIds[i]}`).textContent = value);
+      }
+
+      function decodeXml(value) {
+        return String(value ?? "")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&amp;/g, "&");
+      }
+
+      function normalizeZipPath(path) {
+        return path.replace(/^\/+/, "").replace(/\\/g, "/");
+      }
+
+      async function inflateRaw(data) {
+        if (!("DecompressionStream" in window)) throw new Error("此瀏覽器不支援匯入壓縮過的 Excel，請改用 Chrome 或 Edge。");
+        const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+
+      async function unzipXlsx(file) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const view = new DataView(bytes.buffer);
+        const entries = new Map();
+        let offset = 0;
+
+        while (offset + 30 <= bytes.length && view.getUint32(offset, true) === 0x04034b50) {
+          const flags = view.getUint16(offset + 6, true);
+          const method = view.getUint16(offset + 8, true);
+          const compressedSize = view.getUint32(offset + 18, true);
+          const uncompressedSize = view.getUint32(offset + 22, true);
+          const nameLength = view.getUint16(offset + 26, true);
+          const extraLength = view.getUint16(offset + 28, true);
+          const nameStart = offset + 30;
+          const dataStart = nameStart + nameLength + extraLength;
+          const name = normalizeZipPath(new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength)));
+          if (flags & 0x08) throw new Error("此 Excel 檔使用資料描述符，請先用 Excel 另存新檔後再匯入。");
+          const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+          let data;
+          if (method === 0) data = compressed;
+          else if (method === 8) data = await inflateRaw(compressed);
+          else throw new Error(`不支援的 Excel 壓縮格式：${method}`);
+          if (uncompressedSize && data.length !== uncompressedSize) throw new Error(`Excel 檔案解壓縮大小不一致：${name}`);
+          entries.set(name, data);
+          offset = dataStart + compressedSize;
+        }
+        return entries;
+      }
+
+      function textEntry(entries, path) {
+        const data = entries.get(normalizeZipPath(path));
+        return data ? new TextDecoder("utf-8").decode(data) : "";
+      }
+
+      function parseXml(xml) {
+        return new DOMParser().parseFromString(xml, "application/xml");
+      }
+
+      function parseSharedStrings(entries) {
+        const xml = textEntry(entries, "xl/sharedStrings.xml");
+        if (!xml) return [];
+        return [...parseXml(xml).getElementsByTagName("si")].map((si) =>
+          [...si.getElementsByTagName("t")].map((node) => node.textContent || "").join("")
+        );
+      }
+
+      function columnIndexFromRef(ref) {
+        const letters = String(ref || "").match(/[A-Z]+/i)?.[0] || "";
+        return [...letters.toUpperCase()].reduce((sum, char) => sum * 26 + char.charCodeAt(0) - 64, 0);
+      }
+
+      function parseSheetRows(xml, sharedStrings) {
+        const rows = [];
+        const sheet = parseXml(xml);
+        for (const rowNode of sheet.getElementsByTagName("row")) {
+          const rowIndex = Number(rowNode.getAttribute("r")) || rows.length + 1;
+          const row = [];
+          let nextColumn = 1;
+          for (const cell of rowNode.getElementsByTagName("c")) {
+            const ref = cell.getAttribute("r");
+            const colIndex = columnIndexFromRef(ref) || nextColumn;
+            nextColumn = colIndex + 1;
+            const type = cell.getAttribute("t");
+            let value = "";
+            if (type === "inlineStr") {
+              value = [...cell.getElementsByTagName("t")].map((node) => node.textContent || "").join("");
+            } else {
+              const raw = cell.getElementsByTagName("v")[0]?.textContent ?? "";
+              value = type === "s" ? (sharedStrings[Number(raw)] || "") : raw;
+            }
+            if (type !== "s" && type !== "inlineStr" && value !== "" && Number.isFinite(Number(value))) value = Number(value);
+            row[colIndex - 1] = value;
+          }
+          rows[rowIndex - 1] = row;
+        }
+        return rows;
+      }
+
+      function workbookSheetPaths(entries) {
+        const workbookXml = textEntry(entries, "xl/workbook.xml");
+        const relsXml = textEntry(entries, "xl/_rels/workbook.xml.rels");
+        if (!workbookXml || !relsXml) throw new Error("找不到 Excel 工作簿結構，請確認匯入的是 .xlsx 檔。");
+        const rels = new Map();
+        for (const rel of parseXml(relsXml).getElementsByTagName("Relationship")) {
+          rels.set(rel.getAttribute("Id"), normalizeZipPath(`xl/${rel.getAttribute("Target") || ""}`));
+        }
+        return [...parseXml(workbookXml).getElementsByTagName("sheet")].map((sheet) => ({
+          name: sheet.getAttribute("name") || "",
+          path: rels.get(sheet.getAttribute("r:id")) || "",
+        })).filter((sheet) => sheet.path);
+      }
+
+      async function readWorkbookSheets(file) {
+        const entries = await unzipXlsx(file);
+        const sharedStrings = parseSharedStrings(entries);
+        return workbookSheetPaths(entries).map((sheet) => ({
+          name: sheet.name,
+          rows: parseSheetRows(textEntry(entries, sheet.path), sharedStrings),
+        }));
+      }
+
+      function stringCell(value) {
+        return String(value ?? "").trim();
+      }
+
+      function numberCell(value) {
+        if (value === "" || value === null || value === undefined) return "";
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? String(Math.trunc(numeric)) : "";
+      }
+
+      function findHeaderRow(rows, requiredLabels) {
+        return rows.findIndex((row) => {
+          const text = (row || []).map(stringCell).join("|");
+          return requiredLabels.every((label) => text.includes(label));
+        });
+      }
+
+      function extractPersonRows(rows) {
+        const headerIndex = findHeaderRow(rows, ["區段標", "廠商"]);
+        if (headerIndex < 0) return [];
+        const imported = [];
+        let group = 1;
+        for (const row of rows.slice(headerIndex + 1)) {
+          const office = stringCell(row?.[0]);
+          const code = stringCell(row?.[1]);
+          const vendor = stringCell(row?.[2]);
+          if (office.includes("合計") || office.includes("泰籍") || office.includes("印尼") || office.includes("菲律賓") || office.includes("越南")) break;
+          if (office.includes("第二")) group = 2;
+          if (office.includes("第一")) group = 1;
+          const item = {
+            office,
+            code,
+            vendor,
+            thailand: numberCell(row?.[3]),
+            indonesia: numberCell(row?.[4]),
+            philippines: numberCell(row?.[5]),
+            vietnam: numberCell(row?.[6]),
+            address: stringCell(row?.[8]),
+            group,
+          };
+          if (item.code || item.vendor || item.thailand || item.indonesia || item.philippines || item.vietnam || item.address) imported.push(item);
+        }
+        return imported;
+      }
+
+      function extractManagementRows(rows) {
+        const headerIndex = findHeaderRow(rows, ["工程處", "區段標", "稽查"]);
+        if (headerIndex < 0) return [];
+        const imported = [];
+        let group = 1;
+        for (const row of rows.slice(headerIndex + 1)) {
+          const office = stringCell(row?.[0]);
+          const code = stringCell(row?.[1]);
+          const dates = stringCell(row?.[2]);
+          if (office.includes("第二")) group = 2;
+          if (office.includes("第一")) group = 1;
+          if (code || dates) imported.push({ office, code, dates, group });
+        }
+        return imported;
+      }
+
+      function fillInput(row, name, value) {
+        const input = row.querySelector(`[name="${name}"]`);
+        if (input) input.value = value ?? "";
+      }
+
+      function applyPersonRows(importedRows) {
+        const labels = [...tbody.querySelectorAll(".add-row-btn")].map((button) => button.textContent);
+        tbody.innerHTML = "";
+        for (const item of importedRows.filter((row) => row.group === 1)) {
+          const tr = createPersonRow(item);
+          fillInput(tr, "thailand", item.thailand);
+          fillInput(tr, "indonesia", item.indonesia);
+          fillInput(tr, "philippines", item.philippines);
+          fillInput(tr, "vietnam", item.vietnam);
+          fillInput(tr, "address", item.address);
+          tbody.append(tr);
+        }
+        tbody.append(createAddRow(1, 8, labels[0] || "＋ 新增第一區標別", () => addPersonRow(1)));
+        for (const item of importedRows.filter((row) => row.group === 2)) {
+          const tr = createPersonRow(item);
+          fillInput(tr, "thailand", item.thailand);
+          fillInput(tr, "indonesia", item.indonesia);
+          fillInput(tr, "philippines", item.philippines);
+          fillInput(tr, "vietnam", item.vietnam);
+          fillInput(tr, "address", item.address);
+          tbody.append(tr);
+        }
+        tbody.append(createAddRow(2, 8, labels[1] || "＋ 新增第二區標別", () => addPersonRow(2)));
+        updateTotals();
+      }
+
+      function applyManagementRows(importedRows) {
+        const labels = [...managementTbody.querySelectorAll(".add-row-btn")].map((button) => button.textContent);
+        managementTbody.innerHTML = "";
+        for (const item of importedRows.filter((row) => row.group === 1)) {
+          const tr = createManagementRow(item);
+          fillInput(tr, "inspectionDates", item.dates);
+          managementTbody.append(tr);
+        }
+        managementTbody.append(createAddRow(1, 3, labels[0] || "＋ 新增第一區標別", () => addManagementRow(1)));
+        for (const item of importedRows.filter((row) => row.group === 2)) {
+          const tr = createManagementRow(item);
+          fillInput(tr, "inspectionDates", item.dates);
+          managementTbody.append(tr);
+        }
+        managementTbody.append(createAddRow(2, 3, labels[1] || "＋ 新增第二區標別", () => addManagementRow(2)));
+      }
+
+      async function importPreviousFiles() {
+        const files = [...importFilesInput.files];
+        if (!files.length) return;
+        const importButton = document.querySelector("#importPrevious");
+        importButton.disabled = true;
+        statusEl.textContent = "正在匯入上個月資料...";
+        try {
+          let personRows = [];
+          let managementRows = [];
+          for (const file of files) {
+            const sheets = await readWorkbookSheets(file);
+            for (const sheet of sheets) {
+              const extractedPersonRows = extractPersonRows(sheet.rows);
+              if (extractedPersonRows.length) personRows = extractedPersonRows;
+              const extractedManagementRows = extractManagementRows(sheet.rows);
+              if (extractedManagementRows.length) managementRows = extractedManagementRows;
+            }
+          }
+          if (personRows.length) applyPersonRows(personRows);
+          if (managementRows.length) applyManagementRows(managementRows);
+          if (!personRows.length && !managementRows.length) throw new Error("未在 Excel 中找到可匯入的移工資料表。");
+          statusEl.textContent = `已匯入：人數資料 ${personRows.length || 0} 筆、管理資料 ${managementRows.length || 0} 筆`;
+        } catch (error) {
+          statusEl.textContent = error.message;
+        } finally {
+          importButton.disabled = false;
+          importFilesInput.value = "";
+        }
       }
 
       function rocDateParts() {
@@ -768,6 +1032,8 @@
       renderRows();
       renderManagementRows();
       updateTotals();
+      document.querySelector("#importPrevious").addEventListener("click", () => importFilesInput.click());
+      importFilesInput.addEventListener("change", importPreviousFiles);
       document.querySelector("#downloadStats").addEventListener("click", () => download("stats"));
       document.querySelector("#downloadAnalysis").addEventListener("click", () => download("analysis"));
       document.querySelector("#downloadManagement").addEventListener("click", () => download("management"));
