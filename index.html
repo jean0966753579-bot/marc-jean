@@ -155,6 +155,7 @@
         <button id="downloadStats" type="button">下載移工人數統計表</button>
         <button id="downloadAnalysis" type="button">下載第2表 移工國籍人數分析</button>
         <button id="downloadManagement" type="button">下載移工管理次數統計表</button>
+        <button id="clearSavedData" type="button">清除保留資料</button>
         <span id="status" role="status"></span>
       </section>
 
@@ -235,6 +236,7 @@
       const statusEl = document.querySelector("#status");
       const dateInput = document.querySelector("#date");
       const importFilesInput = document.querySelector("#importFiles");
+      const storageKey = "migrantWorkerMonthlyForm.v1";
       const totalIds = ["sumThailand", "sumIndonesia", "sumPhilippines", "sumVietnam", "sumAll"];
 
       function lastDayOfCurrentMonth() {
@@ -256,7 +258,10 @@
           input.step = "1";
           input.inputMode = "numeric";
         }
-        input.addEventListener("input", updateTotals);
+        input.addEventListener("input", () => {
+          updateTotals();
+          saveDraft();
+        });
         return input;
       }
 
@@ -273,6 +278,7 @@
         if (className) input.className = className;
         input.addEventListener("input", () => {
           if (input.value.length > 10) input.value = input.value.slice(0, 10);
+          saveDraft();
         });
 
         const button = document.createElement("button");
@@ -350,6 +356,7 @@
         const code = row.querySelector('[name="code"]');
         code.readOnly = false;
         code.focus();
+        saveDraft();
       }
 
       function addManagementRow(group) {
@@ -359,6 +366,7 @@
         const code = row.querySelector('[name="managementCode"]');
         code.readOnly = false;
         code.focus();
+        saveDraft();
       }
 
       function renderRows() {
@@ -421,6 +429,68 @@
         }
         const all = totals.reduce((sum, value) => sum + value, 0);
         [...totals, all].forEach((value, i) => document.querySelector(`#${totalIds[i]}`).textContent = value);
+      }
+
+      function collectRowsForStorage() {
+        return [...tbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="code"]').value.trim(),
+          vendor: tr.querySelector('[name="vendor"]').value.trim(),
+          thailand: tr.querySelector('[name="thailand"]').value,
+          indonesia: tr.querySelector('[name="indonesia"]').value,
+          philippines: tr.querySelector('[name="philippines"]').value,
+          vietnam: tr.querySelector('[name="vietnam"]').value,
+          address: tr.querySelector('[name="address"]').value,
+          group: Number(tr.dataset.group || 1),
+          highlight: tr.querySelector('[name="code"]').classList.contains("text-red"),
+        }));
+      }
+
+      function collectManagementRowsForStorage() {
+        return [...managementTbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="managementCode"]').value.trim(),
+          dates: tr.querySelector('[name="inspectionDates"]').value,
+          group: Number(tr.dataset.group || 1),
+        }));
+      }
+
+      function saveDraft() {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({
+            date: dateInput.value,
+            rows: collectRowsForStorage(),
+            managementRows: collectManagementRowsForStorage(),
+            savedAt: new Date().toISOString(),
+          }));
+        } catch {
+          statusEl.textContent = "瀏覽器不允許保留資料，請確認未使用無痕模式。";
+        }
+      }
+
+      function restoreDraft() {
+        try {
+          const text = localStorage.getItem(storageKey);
+          if (!text) return false;
+          const draft = JSON.parse(text);
+          if (draft.date) dateInput.value = draft.date;
+          if (Array.isArray(draft.rows) && draft.rows.length) applyPersonRows(draft.rows);
+          if (Array.isArray(draft.managementRows) && draft.managementRows.length) applyManagementRows(draft.managementRows);
+          statusEl.textContent = "已載入上次保留資料";
+          return true;
+        } catch {
+          statusEl.textContent = "保留資料讀取失敗，已改用空白表單。";
+          return false;
+        }
+      }
+
+      function clearSavedData() {
+        localStorage.removeItem(storageKey);
+        dateInput.value = lastDayOfCurrentMonth();
+        renderRows();
+        renderManagementRows();
+        updateTotals();
+        statusEl.textContent = "已清除保留資料";
       }
 
       function decodeXml(value) {
@@ -673,6 +743,7 @@
           if (personRows.length) applyPersonRows(personRows);
           if (managementRows.length) applyManagementRows(managementRows);
           if (!personRows.length && !managementRows.length) throw new Error("未在 Excel 中找到可匯入的移工資料表。");
+          saveDraft();
           statusEl.textContent = `已匯入：人數資料 ${personRows.length || 0} 筆、管理資料 ${managementRows.length || 0} 筆`;
         } catch (error) {
           statusEl.textContent = error.message;
@@ -1031,9 +1102,12 @@
       dateInput.value = lastDayOfCurrentMonth();
       renderRows();
       renderManagementRows();
+      restoreDraft();
       updateTotals();
+      dateInput.addEventListener("change", saveDraft);
       document.querySelector("#importPrevious").addEventListener("click", () => importFilesInput.click());
       importFilesInput.addEventListener("change", importPreviousFiles);
+      document.querySelector("#clearSavedData").addEventListener("click", clearSavedData);
       document.querySelector("#downloadStats").addEventListener("click", () => download("stats"));
       document.querySelector("#downloadAnalysis").addEventListener("click", () => download("analysis"));
       document.querySelector("#downloadManagement").addEventListener("click", () => download("management"));
