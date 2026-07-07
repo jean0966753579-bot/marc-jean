@@ -116,6 +116,7 @@
       .office { width: 118px; background: #111; color: #111; font-size: 13px; }
       .office:not(:empty) { color: #fff; }
       .code { font-weight: 800; }
+      .text-red { color: #c00000; font-weight: 800; }
       .totals {
         display: flex;
         gap: 14px;
@@ -215,7 +216,8 @@
         { office: "", code: "CF690B", vendor: "大陸工程", group: 1 },
         { office: "", code: "CF690C", vendor: "皇昌工程", group: 1 },
         { office: "", code: "CF710", vendor: "皇昌/奧村組", group: 1 },
-        { office: "", code: "IZ0007", vendor: "崇偉營造", group: 1 },
+        { office: "", code: "CFT20", vendor: "皇昌工程/日商奧村組", group: 1, highlight: true },
+        { office: "", code: "IZ0007", vendor: "崇偉營造", group: 1, highlight: true },
         { office: "第二區工程處", code: "CQ840", vendor: "大陸工程", group: 2 },
         { office: "", code: "CQ842", vendor: "大陸工程", group: 2 },
         { office: "", code: "CQ850A", vendor: "大陸工程", group: 2 },
@@ -304,8 +306,8 @@
           <td></td>
           <td></td><td></td><td></td><td></td><td></td>
         `;
-        tr.children[1].append(createEditableField("code", item.code, "code"));
-        tr.children[2].append(createEditableField("vendor", item.vendor));
+        tr.children[1].append(createEditableField("code", item.code, item.highlight ? "code text-red" : "code"));
+        tr.children[2].append(createEditableField("vendor", item.vendor, item.highlight ? "text-red" : ""));
         tr.children[3].append(createInput("thailand"));
         tr.children[4].append(createInput("indonesia"));
         tr.children[5].append(createInput("philippines"));
