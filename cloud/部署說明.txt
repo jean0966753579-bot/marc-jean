@@ -1,0 +1,27 @@
+移工填報雲端資料庫部署說明
+
+資料庫：
+https://docs.google.com/spreadsheets/d/1QXTqq1Q-ahUFwoaDH6bZaXJGuuvz-QyX7h3J9qPjjk8/edit
+
+部署步驟：
+1. 開啟 https://script.google.com/
+2. 建立新專案。
+3. 將本資料夾的 Code.gs 內容全部貼到 Apps Script 的 Code.gs。
+4. 按「儲存」。
+5. 按「部署」>「新增部署作業」。
+6. 類型選「網頁應用程式」。
+7. 執行身分選「我」。
+8. 存取權限選「任何人」。
+9. 按「部署」，依畫面授權。
+10. 複製部署完成後的 Web App URL。
+11. 回到網站，將 Web App URL 貼到「雲端 Web App URL」欄位。
+
+使用方式：
+- 承辦人填完表單後，按「送出雲端資料」。
+- 管理者開啟同一網站，貼上 Web App URL，按「載入雲端最新資料」。
+- 載入後即可在網頁上查看資料，並按原本 3 個下載按鈕下載 Excel。
+
+注意：
+- Web App URL 只需在同一瀏覽器貼一次，網站會自動保留。
+- Google Sheet 會保留每次送出的紀錄。
+- 若要停用收件，可到 Apps Script 管理部署作業並停用 Web App。

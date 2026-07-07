@@ -75,6 +75,18 @@
         gap: 12px;
         margin-bottom: 14px;
       }
+      .cloud-panel {
+        display: grid;
+        grid-template-columns: minmax(220px, 2fr) minmax(140px, 1fr) minmax(160px, 1fr);
+        gap: 12px;
+        align-items: end;
+        margin: 0 0 14px;
+      }
+      .cloud-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
       button {
         border: 0;
         border-radius: 8px;
@@ -133,6 +145,7 @@
       .total strong { display: block; color: #15398a; font-size: 20px; }
       @media (max-width: 720px) {
         .top, .actions { align-items: stretch; flex-direction: column; }
+        .cloud-panel { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -157,6 +170,25 @@
         <button id="downloadManagement" type="button">下載移工管理次數統計表</button>
         <button id="clearSavedData" type="button">清除保留資料</button>
         <span id="status" role="status"></span>
+      </section>
+
+      <section class="cloud-panel" aria-label="雲端資料">
+        <label>
+          雲端 Web App URL
+          <input id="cloudEndpoint" type="url" placeholder="貼上 Apps Script Web App URL" />
+        </label>
+        <label>
+          填報人
+          <input id="reporter" type="text" placeholder="承辦人姓名" />
+        </label>
+        <label>
+          電話/備註
+          <input id="reportNote" type="text" placeholder="選填" />
+        </label>
+        <div class="cloud-actions">
+          <button id="submitCloud" type="button">送出雲端資料</button>
+          <button id="loadCloudLatest" type="button">載入雲端最新資料</button>
+        </div>
       </section>
 
       <section class="totals" aria-label="合計">
@@ -237,7 +269,11 @@
       const dateInput = document.querySelector("#date");
       const importFilesInput = document.querySelector("#importFiles");
       const storageKey = "migrantWorkerMonthlyForm.v1";
+      const cloudConfigKey = "migrantWorkerCloudConfig.v1";
       const totalIds = ["sumThailand", "sumIndonesia", "sumPhilippines", "sumVietnam", "sumAll"];
+      const cloudEndpointInput = document.querySelector("#cloudEndpoint");
+      const reporterInput = document.querySelector("#reporter");
+      const reportNoteInput = document.querySelector("#reportNote");
 
       function lastDayOfCurrentMonth() {
         const now = new Date();
@@ -455,10 +491,31 @@
         }));
       }
 
+      function saveCloudConfig() {
+        localStorage.setItem(cloudConfigKey, JSON.stringify({
+          endpoint: cloudEndpointInput.value.trim(),
+          reporter: reporterInput.value.trim(),
+          note: reportNoteInput.value.trim(),
+        }));
+      }
+
+      function restoreCloudConfig() {
+        try {
+          const config = JSON.parse(localStorage.getItem(cloudConfigKey) || "{}");
+          cloudEndpointInput.value = config.endpoint || "";
+          reporterInput.value = config.reporter || "";
+          reportNoteInput.value = config.note || "";
+        } catch {
+          localStorage.removeItem(cloudConfigKey);
+        }
+      }
+
       function saveDraft() {
         try {
           localStorage.setItem(storageKey, JSON.stringify({
             date: dateInput.value,
+            reporter: reporterInput.value.trim(),
+            note: reportNoteInput.value.trim(),
             rows: collectRowsForStorage(),
             managementRows: collectManagementRowsForStorage(),
             savedAt: new Date().toISOString(),
@@ -474,6 +531,8 @@
           if (!text) return false;
           const draft = JSON.parse(text);
           if (draft.date) dateInput.value = draft.date;
+          if (draft.reporter) reporterInput.value = draft.reporter;
+          if (draft.note) reportNoteInput.value = draft.note;
           if (Array.isArray(draft.rows) && draft.rows.length) applyPersonRows(draft.rows);
           if (Array.isArray(draft.managementRows) && draft.managementRows.length) applyManagementRows(draft.managementRows);
           statusEl.textContent = "已載入上次保留資料";
@@ -491,6 +550,98 @@
         renderManagementRows();
         updateTotals();
         statusEl.textContent = "已清除保留資料";
+      }
+
+      function cloudPayload() {
+        const rows = collectRowsForStorage();
+        const managementRows = collectManagementRowsForStorage();
+        const totals = rows.reduce((sum, row) => ({
+          thailand: sum.thailand + Number(row.thailand || 0),
+          indonesia: sum.indonesia + Number(row.indonesia || 0),
+          philippines: sum.philippines + Number(row.philippines || 0),
+          vietnam: sum.vietnam + Number(row.vietnam || 0),
+        }), { thailand: 0, indonesia: 0, philippines: 0, vietnam: 0 });
+        return {
+          submissionId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          submittedAt: new Date().toISOString(),
+          date: dateInput.value,
+          reporter: reporterInput.value.trim(),
+          note: reportNoteInput.value.trim(),
+          totals,
+          rows,
+          managementRows,
+        };
+      }
+
+      async function submitCloudData() {
+        const endpoint = cloudEndpointInput.value.trim();
+        if (!endpoint) {
+          statusEl.textContent = "請先貼上雲端 Web App URL。";
+          return;
+        }
+        saveCloudConfig();
+        saveDraft();
+        document.querySelector("#submitCloud").disabled = true;
+        statusEl.textContent = "正在送出雲端資料...";
+        try {
+          await fetch(endpoint, {
+            method: "POST",
+            mode: "no-cors",
+            body: new URLSearchParams({ payload: JSON.stringify(cloudPayload()) }),
+          });
+          statusEl.textContent = "已送出雲端資料。管理者可按「載入雲端最新資料」查看。";
+        } catch {
+          statusEl.textContent = "雲端送出失敗，請確認 Web App URL 是否正確。";
+        } finally {
+          document.querySelector("#submitCloud").disabled = false;
+        }
+      }
+
+      function loadJsonp(url) {
+        return new Promise((resolve, reject) => {
+          const callback = `cloudCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const script = document.createElement("script");
+          const separator = url.includes("?") ? "&" : "?";
+          window[callback] = (data) => {
+            delete window[callback];
+            script.remove();
+            resolve(data);
+          };
+          script.onerror = () => {
+            delete window[callback];
+            script.remove();
+            reject(new Error("load failed"));
+          };
+          script.src = `${url}${separator}callback=${callback}&t=${Date.now()}`;
+          document.body.append(script);
+        });
+      }
+
+      async function loadCloudLatest() {
+        const endpoint = cloudEndpointInput.value.trim();
+        if (!endpoint) {
+          statusEl.textContent = "請先貼上雲端 Web App URL。";
+          return;
+        }
+        saveCloudConfig();
+        document.querySelector("#loadCloudLatest").disabled = true;
+        statusEl.textContent = "正在載入雲端最新資料...";
+        try {
+          const data = await loadJsonp(endpoint);
+          if (!data || !data.latest) throw new Error("no data");
+          const latest = data.latest;
+          if (latest.date) dateInput.value = latest.date;
+          if (latest.reporter) reporterInput.value = latest.reporter;
+          if (latest.note) reportNoteInput.value = latest.note;
+          if (Array.isArray(latest.rows)) applyPersonRows(latest.rows);
+          if (Array.isArray(latest.managementRows)) applyManagementRows(latest.managementRows);
+          saveDraft();
+          statusEl.textContent = `已載入雲端最新資料：${latest.reporter || "未填報人"} / ${latest.date || ""}`;
+        } catch {
+          statusEl.textContent = "載入雲端資料失敗，請確認 Web App URL 或資料庫是否已部署。";
+        } finally {
+          document.querySelector("#loadCloudLatest").disabled = false;
+        }
       }
 
       function decodeXml(value) {
@@ -1102,12 +1253,18 @@
       dateInput.value = lastDayOfCurrentMonth();
       renderRows();
       renderManagementRows();
+      restoreCloudConfig();
       restoreDraft();
       updateTotals();
       dateInput.addEventListener("change", saveDraft);
+      cloudEndpointInput.addEventListener("change", saveCloudConfig);
+      reporterInput.addEventListener("input", () => { saveCloudConfig(); saveDraft(); });
+      reportNoteInput.addEventListener("input", () => { saveCloudConfig(); saveDraft(); });
       document.querySelector("#importPrevious").addEventListener("click", () => importFilesInput.click());
       importFilesInput.addEventListener("change", importPreviousFiles);
       document.querySelector("#clearSavedData").addEventListener("click", clearSavedData);
+      document.querySelector("#submitCloud").addEventListener("click", submitCloudData);
+      document.querySelector("#loadCloudLatest").addEventListener("click", loadCloudLatest);
       document.querySelector("#downloadStats").addEventListener("click", () => download("stats"));
       document.querySelector("#downloadAnalysis").addEventListener("click", () => download("analysis"));
       document.querySelector("#downloadManagement").addEventListener("click", () => download("management"));
