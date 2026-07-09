@@ -81,8 +81,31 @@
         gap: 12px;
         align-items: end;
         margin: 0 0 14px;
-        display: none;
       }
+      .admin-panel {
+        margin: 0 0 14px;
+        border: 1px solid #cfd8e6;
+        border-radius: 8px;
+        background: #fff;
+        padding: 14px;
+      }
+      .admin-panel summary {
+        color: #15398a;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .admin-controls {
+        display: grid;
+        grid-template-columns: 180px minmax(220px, 1fr) auto auto;
+        gap: 12px;
+        align-items: end;
+        margin-top: 14px;
+      }
+      .status-summary { margin: 12px 0; color: #526078; font-weight: 700; }
+      .status-table { min-width: 760px; }
+      .status-on-time { color: #14735c; font-weight: 800; }
+      .status-incomplete { color: #b7791f; font-weight: 800; }
+      .status-late, .status-missing { color: #c00000; font-weight: 800; }
       .cloud-actions {
         display: flex;
         gap: 12px;
@@ -147,6 +170,7 @@
       @media (max-width: 720px) {
         .top, .actions { align-items: stretch; flex-direction: column; }
         .cloud-panel { grid-template-columns: 1fr; }
+        .admin-controls { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -191,6 +215,38 @@
           <button id="loadCloudLatest" type="button">載入雲端最新資料</button>
         </div>
       </section>
+
+      <details class="admin-panel">
+        <summary>管理者專區：每月5日前完成狀態與全局下載</summary>
+        <div class="admin-controls">
+          <label>
+            查詢月份
+            <input id="adminMonth" type="month" />
+          </label>
+          <label>
+            管理金鑰
+            <input id="adminKey" type="password" autocomplete="off" placeholder="輸入管理金鑰" />
+          </label>
+          <button id="loadMonthlyStatus" type="button">查詢填報狀態</button>
+          <button id="loadMonthlyAggregate" type="button">載入全局資料</button>
+        </div>
+        <div id="statusSummary" class="status-summary">尚未查詢。</div>
+        <section class="sheet">
+          <table class="status-table">
+            <thead>
+              <tr>
+                <th>工程處</th>
+                <th>區段標</th>
+                <th>廠商名稱</th>
+                <th>填報人</th>
+                <th>送出時間</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="monthlyStatusRows"></tbody>
+          </table>
+        </section>
+      </details>
 
       <section class="totals" aria-label="合計">
         <div class="total">泰國<strong id="sumThailand">0</strong></div>
@@ -256,6 +312,11 @@
       const cloudEndpointInput = document.querySelector("#cloudEndpoint");
       const reporterInput = document.querySelector("#reporter");
       const reportNoteInput = document.querySelector("#reportNote");
+      const adminMonthInput = document.querySelector("#adminMonth");
+      const adminKeyInput = document.querySelector("#adminKey");
+      const monthlyStatusRows = document.querySelector("#monthlyStatusRows");
+      const statusSummary = document.querySelector("#statusSummary");
+      const adminStorageKey = "migrantWorkerAdminConfig.v1";
 
       function lastDayOfCurrentMonth() {
         const now = new Date();
@@ -623,6 +684,106 @@
           statusEl.textContent = "載入雲端資料失敗，請確認 Web App URL 或資料庫是否已部署。";
         } finally {
           document.querySelector("#loadCloudLatest").disabled = false;
+        }
+      }
+
+      function monthEndValue(month) {
+        const [year, monthNumber] = String(month || "").split("-").map(Number);
+        if (!year || !monthNumber) return "";
+        const value = new Date(year, monthNumber, 0);
+        return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+      }
+
+      function saveAdminConfig() {
+        localStorage.setItem(adminStorageKey, JSON.stringify({
+          month: adminMonthInput.value,
+          key: adminKeyInput.value,
+        }));
+      }
+
+      function restoreAdminConfig() {
+        try {
+          const config = JSON.parse(localStorage.getItem(adminStorageKey) || "{}");
+          adminMonthInput.value = config.month || dateInput.value.slice(0, 7);
+          adminKeyInput.value = config.key || "";
+        } catch {
+          adminMonthInput.value = dateInput.value.slice(0, 7);
+        }
+      }
+
+      function adminRequestUrl(action) {
+        const endpoint = cloudEndpointInput.value.trim();
+        const month = adminMonthInput.value;
+        const adminKey = adminKeyInput.value.trim();
+        if (!endpoint) throw new Error("請先填寫雲端 Web App URL。");
+        if (!month) throw new Error("請選擇查詢月份。");
+        if (!adminKey) throw new Error("請輸入管理金鑰。");
+        const separator = endpoint.includes("?") ? "&" : "?";
+        return `${endpoint}${separator}action=${encodeURIComponent(action)}&month=${encodeURIComponent(month)}&adminKey=${encodeURIComponent(adminKey)}`;
+      }
+
+      function renderMonthlyStatus(result) {
+        monthlyStatusRows.innerHTML = "";
+        const labels = {
+          "on-time": "5日前完成",
+          late: "逾期完成",
+          incomplete: "資料不完整",
+          missing: "尚未填報",
+        };
+        for (const item of result.items || []) {
+          const tr = document.createElement("tr");
+          const submittedAt = item.submittedAt ? new Date(item.submittedAt).toLocaleString("zh-TW") : "";
+          const values = [item.office, item.code, item.vendor, item.reporter, submittedAt, labels[item.status] || item.status];
+          values.forEach((value, index) => {
+            const td = document.createElement("td");
+            td.textContent = value || "";
+            if (index === 1) td.className = "code";
+            if (index === 5) td.className = `status-${item.status}`;
+            tr.append(td);
+          });
+          monthlyStatusRows.append(tr);
+        }
+        statusSummary.textContent = `${result.month}：應填 ${result.total} 標，已完成 ${result.completed} 標，其中 ${result.onTime} 標於5日前完成。`;
+      }
+
+      async function loadMonthlyStatus() {
+        const button = document.querySelector("#loadMonthlyStatus");
+        button.disabled = true;
+        statusEl.textContent = "正在查詢各標完成狀態...";
+        try {
+          saveCloudConfig();
+          saveAdminConfig();
+          const data = await loadJsonp(adminRequestUrl("status"));
+          if (!data || !data.status) throw new Error("查無狀態資料。");
+          renderMonthlyStatus(data.status);
+          statusEl.textContent = "已更新各標完成狀態。";
+        } catch (error) {
+          statusEl.textContent = error.message || "狀態查詢失敗。";
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function loadMonthlyAggregate() {
+        const button = document.querySelector("#loadMonthlyAggregate");
+        button.disabled = true;
+        statusEl.textContent = "正在載入全局最新版資料...";
+        try {
+          saveCloudConfig();
+          saveAdminConfig();
+          const data = await loadJsonp(adminRequestUrl("aggregate"));
+          if (!data || !data.aggregate) throw new Error("查無全局資料。");
+          const aggregate = data.aggregate;
+          dateInput.value = monthEndValue(aggregate.month);
+          applyPersonRows(aggregate.rows || []);
+          applyManagementRows(aggregate.managementRows || []);
+          updateTotals();
+          saveDraft();
+          statusEl.textContent = `已載入 ${aggregate.month} 全局資料，可使用上方三個按鈕下載。`;
+        } catch (error) {
+          statusEl.textContent = error.message || "全局資料載入失敗。";
+        } finally {
+          button.disabled = false;
         }
       }
 
@@ -1237,6 +1398,7 @@
       renderManagementRows();
       restoreCloudConfig();
       restoreDraft();
+      restoreAdminConfig();
       updateTotals();
       dateInput.addEventListener("change", saveDraft);
       cloudEndpointInput.addEventListener("change", saveCloudConfig);
@@ -1247,6 +1409,8 @@
       document.querySelector("#clearSavedData").addEventListener("click", clearSavedData);
       document.querySelector("#submitCloud").addEventListener("click", submitCloudData);
       document.querySelector("#loadCloudLatest").addEventListener("click", loadCloudLatest);
+      document.querySelector("#loadMonthlyStatus").addEventListener("click", loadMonthlyStatus);
+      document.querySelector("#loadMonthlyAggregate").addEventListener("click", loadMonthlyAggregate);
       document.querySelector("#downloadStats").addEventListener("click", () => download("stats"));
       document.querySelector("#downloadAnalysis").addEventListener("click", () => download("analysis"));
       document.querySelector("#downloadManagement").addEventListener("click", () => download("management"));

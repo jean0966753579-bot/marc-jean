@@ -1,4 +1,6 @@
 const SPREADSHEET_ID = "1QXTqq1Q-ahUFwoaDH6bZaXJGuuvz-QyX7h3J9qPjjk8";
+const TIME_ZONE = "Asia/Taipei";
+const DEADLINE_DAY = 5;
 
 function doPost(e) {
   const payloadText = e && e.parameter && e.parameter.payload
@@ -12,8 +14,19 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  const data = { ok: true, latest: getLatestSubmission_() };
-  const callback = e && e.parameter && e.parameter.callback;
+  const params = e && e.parameter ? e.parameter : {};
+  const action = params.action || "latest";
+  let data;
+  if (action === "status") {
+    requireAdmin_(params.adminKey);
+    data = { ok: true, status: getMonthlyStatus_(params.month) };
+  } else if (action === "aggregate") {
+    requireAdmin_(params.adminKey);
+    data = { ok: true, aggregate: getMonthlyAggregate_(params.month) };
+  } else {
+    data = { ok: true, latest: getLatestSubmission_() };
+  }
+  const callback = params.callback;
   if (callback) {
     return ContentService
       .createTextOutput(`${callback}(${JSON.stringify(data)});`)
@@ -32,6 +45,28 @@ function ss_() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
+function requireAdmin_(value) {
+  const sheet = ss_().getSheetByName("系統設定");
+  const expected = sheet ? String(sheet.getRange("B2").getDisplayValue()).trim() : "";
+  if (!expected || String(value || "").trim() !== expected) {
+    throw new Error("管理金鑰不正確。");
+  }
+}
+
+function getExpected_() {
+  const sheet = ss_().getSheetByName("系統設定");
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  return sheet.getRange(2, 4, sheet.getLastRow() - 1, 3).getDisplayValues()
+    .filter((row) => row[1])
+    .map((row, index) => ({
+      office: row[0] || "",
+      code: row[1] || "",
+      vendor: row[2] || "",
+      group: row[0] === "第二區工程處" ? 2 : 1,
+      order: index,
+    }));
+}
+
 function saveSubmission_(payload) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -39,10 +74,15 @@ function saveSubmission_(payload) {
     const ss = ss_();
     const submissionId = payload.submissionId || `${Date.now()}`;
     const submittedAt = payload.submittedAt || new Date().toISOString();
-    const rows = Array.isArray(payload.rows) ? payload.rows : [];
-    const managementRows = Array.isArray(payload.managementRows) ? payload.managementRows : [];
+    const rows = (Array.isArray(payload.rows) ? payload.rows : []).filter((row) => String(row.code || "").trim());
+    const managementRows = (Array.isArray(payload.managementRows) ? payload.managementRows : []).filter((row) => String(row.code || "").trim());
     const totals = payload.totals || {};
-    const totalWorkers = Number(totals.thailand || 0) + Number(totals.indonesia || 0) + Number(totals.philippines || 0) + Number(totals.vietnam || 0);
+    const totalWorkers = Number(totals.thailand || 0) + Number(totals.indonesia || 0)
+      + Number(totals.philippines || 0) + Number(totals.vietnam || 0);
+
+    if (!payload.date) throw new Error("缺少統計日期。");
+    if (!String(payload.reporter || "").trim()) throw new Error("請填寫填報人。");
+    if (!rows.length) throw new Error("至少需要一個區段標。");
 
     ss.getSheetByName("填報紀錄").appendRow([
       submissionId,
@@ -74,7 +114,8 @@ function saveSubmission_(payload) {
       row.highlight ? "Y" : "",
     ]);
     if (personValues.length) {
-      ss.getSheetByName("人數明細").getRange(ss.getSheetByName("人數明細").getLastRow() + 1, 1, personValues.length, personValues[0].length).setValues(personValues);
+      const sheet = ss.getSheetByName("人數明細");
+      sheet.getRange(sheet.getLastRow() + 1, 1, personValues.length, personValues[0].length).setValues(personValues);
     }
 
     const managementValues = managementRows.map((row) => [
@@ -88,7 +129,8 @@ function saveSubmission_(payload) {
       row.group || "",
     ]);
     if (managementValues.length) {
-      ss.getSheetByName("管理稽查").getRange(ss.getSheetByName("管理稽查").getLastRow() + 1, 1, managementValues.length, managementValues[0].length).setValues(managementValues);
+      const sheet = ss.getSheetByName("管理稽查");
+      sheet.getRange(sheet.getLastRow() + 1, 1, managementValues.length, managementValues[0].length).setValues(managementValues);
     }
   } finally {
     lock.releaseLock();
@@ -99,6 +141,128 @@ function numberOrBlank_(value) {
   if (value === "" || value === null || value === undefined) return "";
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : "";
+}
+
+function monthKey_(value) {
+  return String(value || "").slice(0, 7);
+}
+
+function latestPersonByCode_(month) {
+  const values = ss_().getSheetByName("人數明細").getDataRange().getValues().slice(1);
+  const result = {};
+  values.forEach((row) => {
+    const code = String(row[5] || "").trim();
+    if (!code || monthKey_(row[1]) !== month) return;
+    const submittedAt = String(row[2] || "");
+    if (!result[code] || submittedAt >= result[code].submittedAt) {
+      result[code] = {
+        submissionId: row[0] || "",
+        date: row[1] || "",
+        submittedAt,
+        reporter: row[3] || "",
+        office: row[4] || "",
+        code,
+        vendor: row[6] || "",
+        thailand: row[7] === "" ? "" : String(row[7]),
+        indonesia: row[8] === "" ? "" : String(row[8]),
+        philippines: row[9] === "" ? "" : String(row[9]),
+        vietnam: row[10] === "" ? "" : String(row[10]),
+        address: row[12] || "",
+        group: Number(row[13] || 1),
+        highlight: row[14] === "Y",
+      };
+    }
+  });
+  return result;
+}
+
+function latestManagementByCode_(month) {
+  const values = ss_().getSheetByName("管理稽查").getDataRange().getValues().slice(1);
+  const result = {};
+  values.forEach((row) => {
+    const code = String(row[5] || "").trim();
+    if (!code || monthKey_(row[1]) !== month) return;
+    const submittedAt = String(row[2] || "");
+    if (!result[code] || submittedAt >= result[code].submittedAt) {
+      result[code] = {
+        submissionId: row[0] || "",
+        date: row[1] || "",
+        submittedAt,
+        reporter: row[3] || "",
+        office: row[4] || "",
+        code,
+        dates: row[6] || "",
+        group: Number(row[7] || 1),
+      };
+    }
+  });
+  return result;
+}
+
+function submittedDay_(submittedAt) {
+  const value = new Date(submittedAt);
+  if (Number.isNaN(value.getTime())) return null;
+  return Number(Utilities.formatDate(value, TIME_ZONE, "d"));
+}
+
+function getMonthlyStatus_(monthInput) {
+  const month = monthKey_(monthInput || Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM"));
+  const people = latestPersonByCode_(month);
+  const management = latestManagementByCode_(month);
+  const items = getExpected_().map((expected) => {
+    const person = people[expected.code] || null;
+    const inspection = management[expected.code] || null;
+    const complete = Boolean(person && inspection && person.reporter && person.vendor);
+    const day = person ? submittedDay_(person.submittedAt) : null;
+    return {
+      office: expected.office,
+      code: expected.code,
+      vendor: expected.vendor,
+      reporter: person ? person.reporter : "",
+      submittedAt: person ? person.submittedAt : "",
+      submittedDay: day,
+      complete,
+      onTime: complete && day !== null && day <= DEADLINE_DAY,
+      status: !person ? "missing" : complete ? (day <= DEADLINE_DAY ? "on-time" : "late") : "incomplete",
+    };
+  });
+  return {
+    month,
+    deadlineDay: DEADLINE_DAY,
+    total: items.length,
+    completed: items.filter((item) => item.complete).length,
+    onTime: items.filter((item) => item.onTime).length,
+    items,
+  };
+}
+
+function getMonthlyAggregate_(monthInput) {
+  const month = monthKey_(monthInput || Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM"));
+  const people = latestPersonByCode_(month);
+  const management = latestManagementByCode_(month);
+  const expected = getExpected_();
+  return {
+    month,
+    date: `${month}-01`,
+    rows: expected.map((item) => people[item.code] || {
+      office: item.office,
+      code: item.code,
+      vendor: item.vendor,
+      thailand: "",
+      indonesia: "",
+      philippines: "",
+      vietnam: "",
+      address: "",
+      group: item.group,
+      highlight: false,
+    }),
+    managementRows: expected.map((item) => management[item.code] || {
+      office: item.office,
+      code: item.code,
+      dates: "",
+      group: item.group,
+    }),
+  };
 }
 
 function getLatestSubmission_() {
@@ -135,12 +299,5 @@ function getLatestSubmission_() {
       group: Number(row[7] || 1),
     }));
 
-  return {
-    submissionId,
-    date,
-    reporter,
-    note,
-    rows: personRows,
-    managementRows,
-  };
+  return { submissionId, date, reporter, note, rows: personRows, managementRows };
 }
