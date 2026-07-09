@@ -3,116 +3,1253 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="各標承辦人移工資料填列表公開下載頁" />
-    <title>各標承辦人移工資料填列表</title>
+    <title>各標承辦人移工資料填列</title>
     <style>
       :root {
         color: #172033;
-        background: #edf3fb;
+        background: #f4f7fb;
         font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
       }
       * { box-sizing: border-box; }
       body { margin: 0; }
-      main { width: min(1180px, calc(100vw - 28px)); margin: 28px auto; }
-      .hero {
-        border-radius: 18px;
-        padding: 28px;
-        color: #fff;
-        background: linear-gradient(135deg, #163b8f, #2466bf);
-        box-shadow: 0 18px 48px rgba(22, 59, 143, .2);
+      main { width: min(1380px, calc(100vw - 32px)); margin: 24px auto; }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: end;
+        margin-bottom: 14px;
       }
-      h1 { margin: 0 0 10px; font-size: clamp(26px, 4vw, 40px); }
-      .hero p { margin: 0; color: #e4edff; line-height: 1.7; }
-      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
-      .button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 46px;
-        padding: 10px 18px;
-        border-radius: 10px;
-        color: #15398a;
-        background: #fff200;
-        font-weight: 800;
-        text-decoration: none;
-      }
-      .card {
-        margin-top: 20px;
-        border: 1px solid #d5dfef;
-        border-radius: 16px;
-        padding: 22px;
+      h1 { margin: 0 0 6px; color: #15398a; font-size: 28px; }
+      p { margin: 0; color: #526078; }
+      label { display: grid; gap: 6px; font-weight: 700; }
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid #c8d2e3;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font: inherit;
         background: #fff;
-        box-shadow: 0 10px 28px rgba(42, 61, 94, .08);
       }
-      h2 { margin: 0 0 14px; color: #163b8f; }
-      ol { margin: 0; padding-left: 1.5em; line-height: 1.9; }
-      .sheet { overflow-x: auto; }
-      table { width: 100%; min-width: 1050px; border-collapse: collapse; }
-      th, td { border: 1px solid #b8c7e0; padding: 10px; text-align: left; }
-      th { background: #fff200; white-space: nowrap; }
-      td.input { background: #fffceb; }
-      td.total { background: #bfe4f5; text-align: right; }
-      .note { margin-top: 12px; color: #526078; line-height: 1.7; }
-      footer { padding: 22px 4px; color: #68758c; text-align: center; }
+      input { min-height: 36px; }
+      textarea {
+        min-height: 76px;
+        resize: vertical;
+        line-height: 1.45;
+      }
+      .editable-cell {
+        display: grid;
+        grid-template-columns: minmax(82px, 1fr) 32px;
+        gap: 6px;
+        align-items: center;
+      }
+      .editable-cell input[readonly] {
+        border-color: transparent;
+        background: transparent;
+        font-weight: inherit;
+        padding-left: 0;
+      }
+      .editable-cell input {
+        max-width: 10em;
+      }
+      .edit-btn,
+      .add-row-btn {
+        border-radius: 6px;
+        min-height: 32px;
+        padding: 6px 8px;
+        background: #475569;
+        font-weight: 700;
+      }
+      .add-row {
+        background: #f8fafc;
+      }
+      .add-row-btn {
+        background: #334155;
+      }
+      .date { min-width: 190px; }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .cloud-panel {
+        display: grid;
+        grid-template-columns: minmax(220px, 2fr) minmax(140px, 1fr) minmax(160px, 1fr);
+        gap: 12px;
+        align-items: end;
+        margin: 0 0 14px;
+        display: none;
+      }
+      .cloud-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 11px 16px;
+        color: #fff;
+        background: #1f5fbf;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      #downloadAnalysis { background: #14735c; }
+      #importPrevious { background: #7c3aed; }
+      button:disabled { cursor: wait; opacity: .62; }
+      #status { color: #526078; font-weight: 700; }
+      .visually-hidden { display: none; }
+      .sheet {
+        overflow: auto;
+        border: 1px solid #cfd8e6;
+        border-radius: 8px;
+        background: #fff;
+      }
+      table { width: 100%; min-width: 1080px; border-collapse: collapse; }
+      th, td {
+        border-bottom: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        padding: 8px;
+        vertical-align: middle;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #fff200;
+        text-align: left;
+        white-space: nowrap;
+      }
+      td:nth-child(4), td:nth-child(5), td:nth-child(6), td:nth-child(7) { width: 92px; }
+      td:nth-child(8) { min-width: 360px; }
+      .office { width: 118px; background: #111; color: #111; font-size: 13px; }
+      .office:not(:empty) { color: #fff; }
+      .code { font-weight: 800; }
+      .text-red { color: #c00000; font-weight: 800; }
+      .totals {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin: 14px 0;
+      }
+      .total {
+        min-width: 130px;
+        border: 1px solid #d6deeb;
+        border-radius: 8px;
+        background: #fff;
+        padding: 10px 12px;
+      }
+      .total strong { display: block; color: #15398a; font-size: 20px; }
+      @media (max-width: 720px) {
+        .top, .actions { align-items: stretch; flex-direction: column; }
+        .cloud-panel { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
     <main>
-      <section class="hero">
-        <h1>各標承辦人移工資料填列表</h1>
-        <p>請下載 Excel 範本後填寫。表格預設保留一列；若需新增標別，在資料列最後一格按 Tab，即可自動新增並沿用格式與施工人數公式。</p>
-        <div class="actions">
-          <a class="button" href="./各標承辦人移工資料填列表.xlsx" download>下載 Excel 填列表</a>
+      <section class="top">
+        <div>
+          <h1>各標承辦人移工資料填列</h1>
+          <p>預設保留一列；可用「新增標別」增加資料列，填完後按鈕下載 3 個 Excel 檔。</p>
+        </div>
+        <label class="date">
+          統計日期
+          <input id="date" type="date" />
+        </label>
+      </section>
+
+      <section class="actions">
+        <button id="importPrevious" type="button">匯入上個月資料</button>
+        <input id="importFiles" class="visually-hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple />
+        <button id="downloadStats" type="button">下載移工人數統計表</button>
+        <button id="downloadAnalysis" type="button">下載第2表 移工國籍人數分析</button>
+        <button id="downloadManagement" type="button">下載移工管理次數統計表</button>
+        <button id="clearSavedData" type="button">清除保留資料</button>
+        <span id="status" role="status"></span>
+      </section>
+
+      <section class="cloud-panel" aria-label="雲端資料">
+        <label>
+          雲端 Web App URL
+          <input id="cloudEndpoint" type="url" placeholder="貼上 Apps Script Web App URL" />
+        </label>
+        <label>
+          填報人
+          <input id="reporter" type="text" placeholder="承辦人姓名" />
+        </label>
+        <label>
+          電話/備註
+          <input id="reportNote" type="text" placeholder="選填" />
+        </label>
+        <div class="cloud-actions">
+          <button id="submitCloud" type="button">送出雲端資料</button>
+          <button id="loadCloudLatest" type="button">載入雲端最新資料</button>
         </div>
       </section>
 
-      <section class="card">
-        <h2>填寫方式</h2>
-        <ol>
-          <li>下載並開啟 Excel。</li>
-          <li>填寫統計日期、填報人、電話或備註。</li>
-          <li>每一個區段標填一列；沒有該國籍移工可填 0 或留白。</li>
-          <li>如需新增標別，在最右側「稽查日期」儲存格按 Tab。</li>
-          <li>儲存檔案後交回彙整人員。</li>
-        </ol>
+      <section class="totals" aria-label="合計">
+        <div class="total">泰國<strong id="sumThailand">0</strong></div>
+        <div class="total">印尼<strong id="sumIndonesia">0</strong></div>
+        <div class="total">菲律賓<strong id="sumPhilippines">0</strong></div>
+        <div class="total">越南<strong id="sumVietnam">0</strong></div>
+        <div class="total">施工人數<strong id="sumAll">0</strong></div>
       </section>
 
-      <section class="card sheet" aria-label="表格欄位預覽">
-        <h2>欄位預覽</h2>
+      <section class="sheet">
         <table>
           <thead>
             <tr>
               <th>工程處</th>
               <th>區段標</th>
               <th>廠商名稱</th>
-              <th>泰國人數</th>
-              <th>印尼人數</th>
-              <th>菲律賓人數</th>
-              <th>越南人數</th>
-              <th>施工人數</th>
+              <th>泰國</th>
+              <th>印尼</th>
+              <th>菲律賓</th>
+              <th>越南</th>
               <th>宿舍地址</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </section>
+
+      <section class="top subhead">
+        <div>
+          <h1>移工管理次數統計表</h1>
+          <p>請填各區段標管理稽查日期，例如：1/1、2/2、3/3。</p>
+        </div>
+      </section>
+
+      <section class="sheet">
+        <table>
+          <thead>
+            <tr>
+              <th>工程處</th>
+              <th>區段標</th>
               <th>稽查日期</th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td class="input">第一區工程處</td>
-              <td class="input"></td>
-              <td class="input"></td>
-              <td class="input"></td>
-              <td class="input"></td>
-              <td class="input"></td>
-              <td class="input"></td>
-              <td class="total">自動加總</td>
-              <td class="input"></td>
-              <td class="input"></td>
-            </tr>
-          </tbody>
+          <tbody id="managementRows"></tbody>
         </table>
-        <p class="note">此頁為公開下載頁，不會收集或上傳承辦人填寫的內容。</p>
       </section>
-
-      <footer>臺北市政府捷運工程局｜移工資料填列</footer>
     </main>
+
+    <script>
+      const lineItems = [
+        { office: "第一區工程處", code: "", vendor: "", group: 1 },
+      ];
+      const managementExtraItems = [];
+
+      const tbody = document.querySelector("#rows");
+      const managementTbody = document.querySelector("#managementRows");
+      const statusEl = document.querySelector("#status");
+      const dateInput = document.querySelector("#date");
+      const importFilesInput = document.querySelector("#importFiles");
+      const storageKey = "migrantWorkerCoordinatorForm.v1";
+      const cloudConfigKey = "migrantWorkerCloudConfig.v1";
+      const totalIds = ["sumThailand", "sumIndonesia", "sumPhilippines", "sumVietnam", "sumAll"];
+      const cloudEndpointInput = document.querySelector("#cloudEndpoint");
+      const reporterInput = document.querySelector("#reporter");
+      const reportNoteInput = document.querySelector("#reportNote");
+
+      function lastDayOfCurrentMonth() {
+        const now = new Date();
+        const value = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const yyyy = value.getFullYear();
+        const mm = String(value.getMonth() + 1).padStart(2, "0");
+        const dd = String(value.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function createInput(name, type = "number") {
+        const input = document.createElement(type === "textarea" ? "textarea" : "input");
+        input.name = name;
+        if (type !== "textarea") input.type = type;
+        if (type === "textarea") input.rows = 3;
+        if (type === "number") {
+          input.min = "0";
+          input.step = "1";
+          input.inputMode = "numeric";
+        }
+        input.addEventListener("input", () => {
+          updateTotals();
+          saveDraft();
+        });
+        return input;
+      }
+
+      function createEditableField(name, value, className = "") {
+        const wrap = document.createElement("div");
+        wrap.className = "editable-cell";
+        const input = document.createElement("input");
+        input.name = name;
+        input.type = "text";
+        input.value = value || "";
+        input.maxLength = 10;
+        input.size = 10;
+        input.readOnly = true;
+        if (className) input.className = className;
+        input.addEventListener("input", () => {
+          if (input.value.length > 10) input.value = input.value.slice(0, 10);
+          saveDraft();
+        });
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "edit-btn";
+        button.title = "修改";
+        button.textContent = "✎";
+        button.addEventListener("click", () => {
+          input.readOnly = !input.readOnly;
+          if (!input.readOnly) {
+            input.focus();
+            input.select();
+          }
+        });
+        input.addEventListener("blur", () => {
+          input.readOnly = true;
+        });
+
+        wrap.append(input, button);
+        return wrap;
+      }
+
+      function createPersonRow(item) {
+        const tr = document.createElement("tr");
+        tr.dataset.group = item.group;
+        tr.innerHTML = `
+          <td class="office">${item.office}</td>
+          <td></td>
+          <td></td>
+          <td></td><td></td><td></td><td></td><td></td>
+        `;
+        tr.children[1].append(createEditableField("code", item.code, item.highlight ? "code text-red" : "code"));
+        tr.children[2].append(createEditableField("vendor", item.vendor, item.highlight ? "text-red" : ""));
+        tr.children[3].append(createInput("thailand"));
+        tr.children[4].append(createInput("indonesia"));
+        tr.children[5].append(createInput("philippines"));
+        tr.children[6].append(createInput("vietnam"));
+        tr.children[7].append(createInput("address", "textarea"));
+        return tr;
+      }
+
+      function createManagementRow(item) {
+        const tr = document.createElement("tr");
+        tr.dataset.group = item.group;
+        tr.innerHTML = `
+          <td class="office">${item.office}</td>
+          <td></td>
+          <td></td>
+        `;
+        tr.children[1].append(createEditableField("managementCode", item.code, "code"));
+        tr.children[2].append(createInput("inspectionDates", "text"));
+        return tr;
+      }
+
+      function createAddRow(group, colspan, label, handler) {
+        const tr = document.createElement("tr");
+        tr.className = "add-row";
+        tr.dataset.group = group;
+        const td = document.createElement("td");
+        td.colSpan = colspan;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "add-row-btn";
+        button.textContent = label;
+        button.addEventListener("click", handler);
+        td.append(button);
+        tr.append(td);
+        return tr;
+      }
+
+      function addPersonRow(group) {
+        const row = createPersonRow({ office: "", code: "", vendor: "", group });
+        const addRow = tbody.querySelector(`tr.add-row[data-group="${group}"]`);
+        tbody.insertBefore(row, addRow);
+        const code = row.querySelector('[name="code"]');
+        code.readOnly = false;
+        code.focus();
+        saveDraft();
+      }
+
+      function addManagementRow(group) {
+        const row = createManagementRow({ office: "", code: "", group });
+        const addRow = managementTbody.querySelector(`tr.add-row[data-group="${group}"]`);
+        managementTbody.insertBefore(row, addRow);
+        const code = row.querySelector('[name="managementCode"]');
+        code.readOnly = false;
+        code.focus();
+        saveDraft();
+      }
+
+      function renderRows() {
+        tbody.innerHTML = "";
+        for (const item of lineItems.filter((line) => line.group === 1)) tbody.append(createPersonRow(item));
+        tbody.append(createAddRow(1, 8, "＋ 新增第一區標別", () => addPersonRow(1)));
+        for (const item of lineItems.filter((line) => line.group === 2)) tbody.append(createPersonRow(item));
+        tbody.append(createAddRow(2, 8, "＋ 新增第二區標別", () => addPersonRow(2)));
+      }
+
+      function renderManagementRows() {
+        managementTbody.innerHTML = "";
+        const group1 = [
+          ...lineItems.filter((line) => line.group === 1).map(({ office, code, group }) => ({ office, code, group })),
+          ...managementExtraItems,
+        ];
+        for (const item of group1) managementTbody.append(createManagementRow(item));
+        managementTbody.append(createAddRow(1, 3, "＋ 新增第一區標別", () => addManagementRow(1)));
+        for (const item of lineItems.filter((line) => line.group === 2).map(({ office, code, group }) => ({ office, code, group }))) {
+          managementTbody.append(createManagementRow(item));
+        }
+        managementTbody.append(createAddRow(2, 3, "＋ 新增第二區標別", () => addManagementRow(2)));
+      }
+
+      function numberOrBlank(value) {
+        if (value === "") return "";
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0) throw new Error("人數欄位只能輸入 0 或正整數。");
+        return Math.trunc(numeric);
+      }
+
+      function collectRows() {
+        return [...tbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="code"]').value.trim(),
+          vendor: tr.querySelector('[name="vendor"]').value.trim(),
+          thailand: numberOrBlank(tr.querySelector('[name="thailand"]').value),
+          indonesia: numberOrBlank(tr.querySelector('[name="indonesia"]').value),
+          philippines: numberOrBlank(tr.querySelector('[name="philippines"]').value),
+          vietnam: numberOrBlank(tr.querySelector('[name="vietnam"]').value),
+          address: tr.querySelector('[name="address"]').value.trim(),
+        }));
+      }
+
+      function collectManagementRows() {
+        return [...managementTbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="managementCode"]').value.trim(),
+          dates: tr.querySelector('[name="inspectionDates"]').value.trim(),
+        }));
+      }
+
+      function updateTotals() {
+        const totals = [0, 0, 0, 0];
+        for (const row of collectRows()) {
+          totals[0] += Number(row.thailand || 0);
+          totals[1] += Number(row.indonesia || 0);
+          totals[2] += Number(row.philippines || 0);
+          totals[3] += Number(row.vietnam || 0);
+        }
+        const all = totals.reduce((sum, value) => sum + value, 0);
+        [...totals, all].forEach((value, i) => document.querySelector(`#${totalIds[i]}`).textContent = value);
+      }
+
+      function collectRowsForStorage() {
+        return [...tbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="code"]').value.trim(),
+          vendor: tr.querySelector('[name="vendor"]').value.trim(),
+          thailand: tr.querySelector('[name="thailand"]').value,
+          indonesia: tr.querySelector('[name="indonesia"]').value,
+          philippines: tr.querySelector('[name="philippines"]').value,
+          vietnam: tr.querySelector('[name="vietnam"]').value,
+          address: tr.querySelector('[name="address"]').value,
+          group: Number(tr.dataset.group || 1),
+          highlight: tr.querySelector('[name="code"]').classList.contains("text-red"),
+        }));
+      }
+
+      function collectManagementRowsForStorage() {
+        return [...managementTbody.querySelectorAll("tr:not(.add-row)")].map((tr) => ({
+          office: tr.querySelector(".office").textContent.trim(),
+          code: tr.querySelector('[name="managementCode"]').value.trim(),
+          dates: tr.querySelector('[name="inspectionDates"]').value,
+          group: Number(tr.dataset.group || 1),
+        }));
+      }
+
+      function saveCloudConfig() {
+        localStorage.setItem(cloudConfigKey, JSON.stringify({
+          endpoint: cloudEndpointInput.value.trim(),
+          reporter: reporterInput.value.trim(),
+          note: reportNoteInput.value.trim(),
+        }));
+      }
+
+      function restoreCloudConfig() {
+        try {
+          const config = JSON.parse(localStorage.getItem(cloudConfigKey) || "{}");
+          cloudEndpointInput.value = config.endpoint || "";
+          reporterInput.value = config.reporter || "";
+          reportNoteInput.value = config.note || "";
+        } catch {
+          localStorage.removeItem(cloudConfigKey);
+        }
+      }
+
+      function saveDraft() {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify({
+            date: dateInput.value,
+            reporter: reporterInput.value.trim(),
+            note: reportNoteInput.value.trim(),
+            rows: collectRowsForStorage(),
+            managementRows: collectManagementRowsForStorage(),
+            savedAt: new Date().toISOString(),
+          }));
+        } catch {
+          statusEl.textContent = "瀏覽器不允許保留資料，請確認未使用無痕模式。";
+        }
+      }
+
+      function restoreDraft() {
+        try {
+          const text = localStorage.getItem(storageKey);
+          if (!text) return false;
+          const draft = JSON.parse(text);
+          if (draft.date) dateInput.value = draft.date;
+          if (draft.reporter) reporterInput.value = draft.reporter;
+          if (draft.note) reportNoteInput.value = draft.note;
+          if (Array.isArray(draft.rows) && draft.rows.length) applyPersonRows(draft.rows);
+          if (Array.isArray(draft.managementRows) && draft.managementRows.length) applyManagementRows(draft.managementRows);
+          statusEl.textContent = "已載入上次保留資料";
+          return true;
+        } catch {
+          statusEl.textContent = "保留資料讀取失敗，已改用空白表單。";
+          return false;
+        }
+      }
+
+      function clearSavedData() {
+        localStorage.removeItem(storageKey);
+        dateInput.value = lastDayOfCurrentMonth();
+        renderRows();
+        renderManagementRows();
+        updateTotals();
+        statusEl.textContent = "已清除保留資料";
+      }
+
+      function cloudPayload() {
+        const rows = collectRowsForStorage();
+        const managementRows = collectManagementRowsForStorage();
+        const totals = rows.reduce((sum, row) => ({
+          thailand: sum.thailand + Number(row.thailand || 0),
+          indonesia: sum.indonesia + Number(row.indonesia || 0),
+          philippines: sum.philippines + Number(row.philippines || 0),
+          vietnam: sum.vietnam + Number(row.vietnam || 0),
+        }), { thailand: 0, indonesia: 0, philippines: 0, vietnam: 0 });
+        return {
+          submissionId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          submittedAt: new Date().toISOString(),
+          date: dateInput.value,
+          reporter: reporterInput.value.trim(),
+          note: reportNoteInput.value.trim(),
+          totals,
+          rows,
+          managementRows,
+        };
+      }
+
+      async function submitCloudData() {
+        const endpoint = cloudEndpointInput.value.trim();
+        if (!endpoint) {
+          statusEl.textContent = "請先貼上雲端 Web App URL。";
+          return;
+        }
+        saveCloudConfig();
+        saveDraft();
+        document.querySelector("#submitCloud").disabled = true;
+        statusEl.textContent = "正在送出雲端資料...";
+        try {
+          await fetch(endpoint, {
+            method: "POST",
+            mode: "no-cors",
+            body: new URLSearchParams({ payload: JSON.stringify(cloudPayload()) }),
+          });
+          statusEl.textContent = "已送出雲端資料。管理者可按「載入雲端最新資料」查看。";
+        } catch {
+          statusEl.textContent = "雲端送出失敗，請確認 Web App URL 是否正確。";
+        } finally {
+          document.querySelector("#submitCloud").disabled = false;
+        }
+      }
+
+      function loadJsonp(url) {
+        return new Promise((resolve, reject) => {
+          const callback = `cloudCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const script = document.createElement("script");
+          const separator = url.includes("?") ? "&" : "?";
+          window[callback] = (data) => {
+            delete window[callback];
+            script.remove();
+            resolve(data);
+          };
+          script.onerror = () => {
+            delete window[callback];
+            script.remove();
+            reject(new Error("load failed"));
+          };
+          script.src = `${url}${separator}callback=${callback}&t=${Date.now()}`;
+          document.body.append(script);
+        });
+      }
+
+      async function loadCloudLatest() {
+        const endpoint = cloudEndpointInput.value.trim();
+        if (!endpoint) {
+          statusEl.textContent = "請先貼上雲端 Web App URL。";
+          return;
+        }
+        saveCloudConfig();
+        document.querySelector("#loadCloudLatest").disabled = true;
+        statusEl.textContent = "正在載入雲端最新資料...";
+        try {
+          const data = await loadJsonp(endpoint);
+          if (!data || !data.latest) throw new Error("no data");
+          const latest = data.latest;
+          if (latest.date) dateInput.value = latest.date;
+          if (latest.reporter) reporterInput.value = latest.reporter;
+          if (latest.note) reportNoteInput.value = latest.note;
+          if (Array.isArray(latest.rows)) applyPersonRows(latest.rows);
+          if (Array.isArray(latest.managementRows)) applyManagementRows(latest.managementRows);
+          saveDraft();
+          statusEl.textContent = `已載入雲端最新資料：${latest.reporter || "未填報人"} / ${latest.date || ""}`;
+        } catch {
+          statusEl.textContent = "載入雲端資料失敗，請確認 Web App URL 或資料庫是否已部署。";
+        } finally {
+          document.querySelector("#loadCloudLatest").disabled = false;
+        }
+      }
+
+      function decodeXml(value) {
+        return String(value ?? "")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&amp;/g, "&");
+      }
+
+      function normalizeZipPath(path) {
+        return path.replace(/^\/+/, "").replace(/\\/g, "/");
+      }
+
+      async function inflateRaw(data) {
+        if (!("DecompressionStream" in window)) throw new Error("此瀏覽器不支援匯入壓縮過的 Excel，請改用 Chrome 或 Edge。");
+        const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+
+      async function unzipXlsx(file) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const view = new DataView(bytes.buffer);
+        const entries = new Map();
+        let offset = 0;
+
+        while (offset + 30 <= bytes.length && view.getUint32(offset, true) === 0x04034b50) {
+          const flags = view.getUint16(offset + 6, true);
+          const method = view.getUint16(offset + 8, true);
+          const compressedSize = view.getUint32(offset + 18, true);
+          const uncompressedSize = view.getUint32(offset + 22, true);
+          const nameLength = view.getUint16(offset + 26, true);
+          const extraLength = view.getUint16(offset + 28, true);
+          const nameStart = offset + 30;
+          const dataStart = nameStart + nameLength + extraLength;
+          const name = normalizeZipPath(new TextDecoder().decode(bytes.slice(nameStart, nameStart + nameLength)));
+          if (flags & 0x08) throw new Error("此 Excel 檔使用資料描述符，請先用 Excel 另存新檔後再匯入。");
+          const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+          let data;
+          if (method === 0) data = compressed;
+          else if (method === 8) data = await inflateRaw(compressed);
+          else throw new Error(`不支援的 Excel 壓縮格式：${method}`);
+          if (uncompressedSize && data.length !== uncompressedSize) throw new Error(`Excel 檔案解壓縮大小不一致：${name}`);
+          entries.set(name, data);
+          offset = dataStart + compressedSize;
+        }
+        return entries;
+      }
+
+      function textEntry(entries, path) {
+        const data = entries.get(normalizeZipPath(path));
+        return data ? new TextDecoder("utf-8").decode(data) : "";
+      }
+
+      function parseXml(xml) {
+        return new DOMParser().parseFromString(xml, "application/xml");
+      }
+
+      function parseSharedStrings(entries) {
+        const xml = textEntry(entries, "xl/sharedStrings.xml");
+        if (!xml) return [];
+        return [...parseXml(xml).getElementsByTagName("si")].map((si) =>
+          [...si.getElementsByTagName("t")].map((node) => node.textContent || "").join("")
+        );
+      }
+
+      function columnIndexFromRef(ref) {
+        const letters = String(ref || "").match(/[A-Z]+/i)?.[0] || "";
+        return [...letters.toUpperCase()].reduce((sum, char) => sum * 26 + char.charCodeAt(0) - 64, 0);
+      }
+
+      function parseSheetRows(xml, sharedStrings) {
+        const rows = [];
+        const sheet = parseXml(xml);
+        for (const rowNode of sheet.getElementsByTagName("row")) {
+          const rowIndex = Number(rowNode.getAttribute("r")) || rows.length + 1;
+          const row = [];
+          let nextColumn = 1;
+          for (const cell of rowNode.getElementsByTagName("c")) {
+            const ref = cell.getAttribute("r");
+            const colIndex = columnIndexFromRef(ref) || nextColumn;
+            nextColumn = colIndex + 1;
+            const type = cell.getAttribute("t");
+            let value = "";
+            if (type === "inlineStr") {
+              value = [...cell.getElementsByTagName("t")].map((node) => node.textContent || "").join("");
+            } else {
+              const raw = cell.getElementsByTagName("v")[0]?.textContent ?? "";
+              value = type === "s" ? (sharedStrings[Number(raw)] || "") : raw;
+            }
+            if (type !== "s" && type !== "inlineStr" && value !== "" && Number.isFinite(Number(value))) value = Number(value);
+            row[colIndex - 1] = value;
+          }
+          rows[rowIndex - 1] = row;
+        }
+        return rows;
+      }
+
+      function workbookSheetPaths(entries) {
+        const workbookXml = textEntry(entries, "xl/workbook.xml");
+        const relsXml = textEntry(entries, "xl/_rels/workbook.xml.rels");
+        if (!workbookXml || !relsXml) throw new Error("找不到 Excel 工作簿結構，請確認匯入的是 .xlsx 檔。");
+        const rels = new Map();
+        for (const rel of parseXml(relsXml).getElementsByTagName("Relationship")) {
+          rels.set(rel.getAttribute("Id"), normalizeZipPath(`xl/${rel.getAttribute("Target") || ""}`));
+        }
+        return [...parseXml(workbookXml).getElementsByTagName("sheet")].map((sheet) => ({
+          name: sheet.getAttribute("name") || "",
+          path: rels.get(sheet.getAttribute("r:id")) || "",
+        })).filter((sheet) => sheet.path);
+      }
+
+      async function readWorkbookSheets(file) {
+        const entries = await unzipXlsx(file);
+        const sharedStrings = parseSharedStrings(entries);
+        return workbookSheetPaths(entries).map((sheet) => ({
+          name: sheet.name,
+          rows: parseSheetRows(textEntry(entries, sheet.path), sharedStrings),
+        }));
+      }
+
+      function stringCell(value) {
+        return String(value ?? "").trim();
+      }
+
+      function numberCell(value) {
+        if (value === "" || value === null || value === undefined) return "";
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? String(Math.trunc(numeric)) : "";
+      }
+
+      function findHeaderRow(rows, requiredLabels) {
+        return rows.findIndex((row) => {
+          const text = (row || []).map(stringCell).join("|");
+          return requiredLabels.every((label) => text.includes(label));
+        });
+      }
+
+      function extractPersonRows(rows) {
+        const headerIndex = findHeaderRow(rows, ["區段標", "廠商"]);
+        if (headerIndex < 0) return [];
+        const imported = [];
+        let group = 1;
+        for (const row of rows.slice(headerIndex + 1)) {
+          const office = stringCell(row?.[0]);
+          const code = stringCell(row?.[1]);
+          const vendor = stringCell(row?.[2]);
+          if (office.includes("合計") || office.includes("泰籍") || office.includes("印尼") || office.includes("菲律賓") || office.includes("越南")) break;
+          if (office.includes("第二")) group = 2;
+          if (office.includes("第一")) group = 1;
+          const item = {
+            office,
+            code,
+            vendor,
+            thailand: numberCell(row?.[3]),
+            indonesia: numberCell(row?.[4]),
+            philippines: numberCell(row?.[5]),
+            vietnam: numberCell(row?.[6]),
+            address: stringCell(row?.[8]),
+            group,
+          };
+          if (item.code || item.vendor || item.thailand || item.indonesia || item.philippines || item.vietnam || item.address) imported.push(item);
+        }
+        return imported;
+      }
+
+      function extractManagementRows(rows) {
+        const headerIndex = findHeaderRow(rows, ["工程處", "區段標", "稽查"]);
+        if (headerIndex < 0) return [];
+        const imported = [];
+        let group = 1;
+        for (const row of rows.slice(headerIndex + 1)) {
+          const office = stringCell(row?.[0]);
+          const code = stringCell(row?.[1]);
+          const dates = stringCell(row?.[2]);
+          if (office.includes("第二")) group = 2;
+          if (office.includes("第一")) group = 1;
+          if (code || dates) imported.push({ office, code, dates, group });
+        }
+        return imported;
+      }
+
+      function fillInput(row, name, value) {
+        const input = row.querySelector(`[name="${name}"]`);
+        if (input) input.value = value ?? "";
+      }
+
+      function applyPersonRows(importedRows) {
+        const labels = [...tbody.querySelectorAll(".add-row-btn")].map((button) => button.textContent);
+        tbody.innerHTML = "";
+        for (const item of importedRows.filter((row) => row.group === 1)) {
+          const tr = createPersonRow(item);
+          fillInput(tr, "thailand", item.thailand);
+          fillInput(tr, "indonesia", item.indonesia);
+          fillInput(tr, "philippines", item.philippines);
+          fillInput(tr, "vietnam", item.vietnam);
+          fillInput(tr, "address", item.address);
+          tbody.append(tr);
+        }
+        tbody.append(createAddRow(1, 8, labels[0] || "＋ 新增第一區標別", () => addPersonRow(1)));
+        for (const item of importedRows.filter((row) => row.group === 2)) {
+          const tr = createPersonRow(item);
+          fillInput(tr, "thailand", item.thailand);
+          fillInput(tr, "indonesia", item.indonesia);
+          fillInput(tr, "philippines", item.philippines);
+          fillInput(tr, "vietnam", item.vietnam);
+          fillInput(tr, "address", item.address);
+          tbody.append(tr);
+        }
+        tbody.append(createAddRow(2, 8, labels[1] || "＋ 新增第二區標別", () => addPersonRow(2)));
+        updateTotals();
+      }
+
+      function applyManagementRows(importedRows) {
+        const labels = [...managementTbody.querySelectorAll(".add-row-btn")].map((button) => button.textContent);
+        managementTbody.innerHTML = "";
+        for (const item of importedRows.filter((row) => row.group === 1)) {
+          const tr = createManagementRow(item);
+          fillInput(tr, "inspectionDates", item.dates);
+          managementTbody.append(tr);
+        }
+        managementTbody.append(createAddRow(1, 3, labels[0] || "＋ 新增第一區標別", () => addManagementRow(1)));
+        for (const item of importedRows.filter((row) => row.group === 2)) {
+          const tr = createManagementRow(item);
+          fillInput(tr, "inspectionDates", item.dates);
+          managementTbody.append(tr);
+        }
+        managementTbody.append(createAddRow(2, 3, labels[1] || "＋ 新增第二區標別", () => addManagementRow(2)));
+      }
+
+      async function importPreviousFiles() {
+        const files = [...importFilesInput.files];
+        if (!files.length) return;
+        const importButton = document.querySelector("#importPrevious");
+        importButton.disabled = true;
+        statusEl.textContent = "正在匯入上個月資料...";
+        try {
+          let personRows = [];
+          let managementRows = [];
+          for (const file of files) {
+            const sheets = await readWorkbookSheets(file);
+            for (const sheet of sheets) {
+              const extractedPersonRows = extractPersonRows(sheet.rows);
+              if (extractedPersonRows.length) personRows = extractedPersonRows;
+              const extractedManagementRows = extractManagementRows(sheet.rows);
+              if (extractedManagementRows.length) managementRows = extractedManagementRows;
+            }
+          }
+          if (personRows.length) applyPersonRows(personRows);
+          if (managementRows.length) applyManagementRows(managementRows);
+          if (!personRows.length && !managementRows.length) throw new Error("未在 Excel 中找到可匯入的移工資料表。");
+          saveDraft();
+          statusEl.textContent = `已匯入：人數資料 ${personRows.length || 0} 筆、管理資料 ${managementRows.length || 0} 筆`;
+        } catch (error) {
+          statusEl.textContent = error.message;
+        } finally {
+          importButton.disabled = false;
+          importFilesInput.value = "";
+        }
+      }
+
+      function rocDateParts() {
+        const value = dateInput.value;
+        if (!value) throw new Error("請選擇統計日期。");
+        const [year, month, day] = value.split("-").map(Number);
+        const rocYear = year - 1911;
+        return {
+          sheet: `${rocYear}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`,
+          label: `${rocYear}.${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")}`,
+        };
+      }
+
+      function xmlEscape(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function colName(index) {
+        let name = "";
+        while (index > 0) {
+          const rem = (index - 1) % 26;
+          name = String.fromCharCode(65 + rem) + name;
+          index = Math.floor((index - 1) / 26);
+        }
+        return name;
+      }
+
+      function cellXml(row, col, value, style = 0) {
+        if (value === "" || value === null || value === undefined) return "";
+        const ref = `${colName(col)}${row}`;
+        const styleAttr = style ? ` s="${style}"` : "";
+        if (typeof value === "object" && value.formula) {
+          return `<c r="${ref}"${styleAttr}><f>${xmlEscape(value.formula)}</f><v>0</v></c>`;
+        }
+        if (typeof value === "number") {
+          return `<c r="${ref}"${styleAttr}><v>${value}</v></c>`;
+        }
+          return `<c r="${ref}" t="inlineStr"${styleAttr}><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+      }
+
+      function sheetXml(rows, options = {}) {
+        const rowXml = rows.map((row, i) => {
+          const rowNumber = i + 1;
+          const cells = row.map((cell, j) => cellXml(rowNumber, j + 1, cell.value, cell.style)).join("");
+          const ht = row.height ? ` ht="${row.height}" customHeight="1"` : "";
+          return `<row r="${rowNumber}"${ht}>${cells}</row>`;
+        }).join("");
+        const cols = (options.cols || []).map((width, i) =>
+          `<col min="${i + 1}" max="${i + 1}" width="${width}" customWidth="1"/>`
+        ).join("");
+        const merges = (options.merges || []).map((ref) => `<mergeCell ref="${ref}"/>`).join("");
+        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetViews><sheetView workbookViewId="0"/></sheetViews>
+  <sheetFormatPr defaultRowHeight="18"/>
+  ${cols ? `<cols>${cols}</cols>` : ""}
+  <sheetData>${rowXml}</sheetData>
+  ${merges ? `<mergeCells count="${options.merges.length}">${merges}</mergeCells>` : ""}
+</worksheet>`;
+      }
+
+      function makeRow(values, styles = [], height = null) {
+        return {
+          height,
+          map(callback) { return values.map(callback); },
+          cells: values.map((value, i) => ({ value, style: styles[i] || styles[0] || 0 })),
+        };
+      }
+
+      function row(values, styles = [], height = null) {
+        return { height, map: undefined, values, cells: values.map((value, i) => ({ value, style: styles[i] || styles[0] || 0 })) };
+      }
+
+      function makeWorkbookXml(date, statsSheetXml, analysisSheetXml) {
+        const safeStatsName = xmlEscape(date.sheet);
+        const safeAnalysisName = xmlEscape("Q各線別人數及國籍分析統計表");
+        const files = {
+          "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`,
+          "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`,
+          "docProps/core.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"><dc:title>移工人數資料表</dc:title><dc:creator>移工人數資料表填列網頁</dc:creator></cp:coreProperties>`,
+          "docProps/app.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>移工人數資料表填列網頁</Application></Properties>`,
+          "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="${safeStatsName}" sheetId="1" r:id="rId1"/>
+    <sheet name="${safeAnalysisName}" sheetId="2" r:id="rId2"/>
+  </sheets>
+</workbook>`,
+          "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`,
+          "xl/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="5"><font><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="20"/><color rgb="FF0000CC"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft JhengHei"/></font><font><sz val="14"/><color rgb="FFFF0000"/><name val="Microsoft JhengHei"/></font></fonts>
+  <fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF000000"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFCEB"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/></patternFill></fill></fills>
+  <borders count="2"><border/><border><left style="thin"><color rgb="FFD9E1F2"/></left><right style="thin"><color rgb="FFD9E1F2"/></right><top style="thin"><color rgb="FFD9E1F2"/></top><bottom style="thin"><color rgb="FFD9E1F2"/></bottom></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="4" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="5" borderId="1" applyFill="1" applyBorder="1"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`,
+          "xl/worksheets/sheet1.xml": statsSheetXml,
+          "xl/worksheets/sheet2.xml": analysisSheetXml,
+        };
+        return files;
+      }
+
+      function makeNationalityAnalysisWorkbookXml(date, analysisSheetXml, statsSheetXml) {
+        const files = makeWorkbookXml(date, statsSheetXml, analysisSheetXml);
+        const safeStatsName = xmlEscape(date.sheet);
+        const safeAnalysisName = xmlEscape("Q各線別人數及國籍分析統計表");
+        files["xl/workbook.xml"] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="${safeAnalysisName}" sheetId="1" r:id="rId1"/>
+    <sheet name="${safeStatsName}" sheetId="2" r:id="rId2"/>
+  </sheets>
+</workbook>`;
+        files["xl/worksheets/sheet1.xml"] = analysisSheetXml;
+        files["xl/worksheets/sheet2.xml"] = statsSheetXml;
+        return files;
+      }
+
+      function makeSingleSheetWorkbookXml(sheetName, worksheetXml) {
+        const safeSheetName = xmlEscape(sheetName);
+        return {
+          "[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`,
+          "_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`,
+          "docProps/core.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>移工管理次數統計表</dc:title><dc:creator>移工人數資料表填列網頁</dc:creator></cp:coreProperties>`,
+          "docProps/app.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>移工人數資料表填列網頁</Application></Properties>`,
+          "xl/workbook.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="${safeSheetName}" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`,
+          "xl/_rels/workbook.xml.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`,
+          "xl/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="4"><font><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="16"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><name val="Microsoft JhengHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft JhengHei"/></font></fonts>
+  <fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF000000"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFCEB"/></patternFill></fill></fills>
+  <borders count="2"><border/><border><left style="thin"><color rgb="FFD9E1F2"/></left><right style="thin"><color rgb="FFD9E1F2"/></right><top style="thin"><color rgb="FFD9E1F2"/></top><bottom style="thin"><color rgb="FFD9E1F2"/></bottom></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="4" borderId="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`,
+          "xl/worksheets/sheet1.xml": worksheetXml,
+        };
+      }
+
+      function crc32(bytes) {
+        let table = crc32.table;
+        if (!table) {
+          table = crc32.table = new Uint32Array(256);
+          for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+            table[i] = c >>> 0;
+          }
+        }
+        let crc = 0xFFFFFFFF;
+        for (const byte of bytes) crc = table[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+
+      function push16(out, value) { out.push(value & 255, (value >>> 8) & 255); }
+      function push32(out, value) { out.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255); }
+
+      function makeZip(files) {
+        const encoder = new TextEncoder();
+        const out = [];
+        const central = [];
+        let offset = 0;
+        const now = new Date();
+        const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+        const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+
+        for (const [name, content] of Object.entries(files)) {
+          const nameBytes = encoder.encode(name);
+          const data = encoder.encode(content);
+          const crc = crc32(data);
+          const localOffset = offset;
+          push32(out, 0x04034b50); push16(out, 20); push16(out, 0x0800); push16(out, 0);
+          push16(out, dosTime); push16(out, dosDate); push32(out, crc);
+          push32(out, data.length); push32(out, data.length); push16(out, nameBytes.length); push16(out, 0);
+          out.push(...nameBytes, ...data);
+          offset = out.length;
+
+          push32(central, 0x02014b50); push16(central, 20); push16(central, 20); push16(central, 0x0800); push16(central, 0);
+          push16(central, dosTime); push16(central, dosDate); push32(central, crc);
+          push32(central, data.length); push32(central, data.length); push16(central, nameBytes.length);
+          push16(central, 0); push16(central, 0); push16(central, 0); push16(central, 0); push32(central, 0); push32(central, localOffset);
+          central.push(...nameBytes);
+        }
+
+        const centralOffset = out.length;
+        out.push(...central);
+        push32(out, 0x06054b50); push16(out, 0); push16(out, 0); push16(out, Object.keys(files).length);
+        push16(out, Object.keys(files).length); push32(out, central.length); push32(out, centralOffset); push16(out, 0);
+        return new Blob([new Uint8Array(out)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      }
+
+      function buildWorkbookBlob() {
+        const date = rocDateParts();
+        const rows = collectRows();
+        const statsRows = [
+          row([`捷運工程僱用移工人數統計表    統計日期：${date.label}`, "", "", "", "", "", "", "", ""], [1], 32),
+          row(["工程處", "區段標", "廠商名稱", "國籍\n泰國", "國籍\n印尼", "國籍\n菲律賓", "國籍\n越南", "施工人數", "宿舍地址"], [2], 26),
+        ];
+        rows.forEach((item, index) => {
+          const excelRow = index + 3;
+          const addressLines = String(item.address || "").split(/\r?\n/).length;
+          const rowHeight = Math.max(index === 14 ? 76 : 26, 22 + addressLines * 18);
+          statsRows.push(row([
+            item.office,
+            item.code,
+            item.vendor,
+            item.thailand,
+            item.indonesia,
+            item.philippines,
+            item.vietnam,
+            { formula: `SUM(D${excelRow}:G${excelRow})` },
+            item.address,
+          ], [0, 5, 0, 4, 4, 4, 4, 0, 4], rowHeight));
+        });
+        const lastDataRow = rows.length + 2;
+        statsRows.push(row(["合計", "", "", "", "", "", "", { formula: `SUM(H3:H${lastDataRow})` }, ""], [6], 26));
+        statsRows.push(row(["泰籍人數", { formula: `SUM(D3:D${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+        statsRows.push(row(["印尼人數", { formula: `SUM(E3:E${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+        statsRows.push(row(["菲律賓人數", { formula: `SUM(F3:F${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+        statsRows.push(row(["越南人數", { formula: `SUM(G3:G${lastDataRow})` }, "", "", "", "", "", "", ""], [0], 24));
+
+        const analysisRows = [
+          row(["捷運工程僱用移工人數-分析", ""], [1], 38),
+          row(["工程名稱", "僱用人數總計"], [2], 32),
+          row(["捷運（含代辦）工程僱用移工人數", { formula: "SUM(B4:B7)" }], [0, 5], 40),
+          row(["萬大線", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"CQ*",'${date.sheet}'!H3:H${lastDataRow})` }], [0, 0], 28),
+          row(["信義線東延段", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"CR*",'${date.sheet}'!H3:H${lastDataRow})` }], [0, 0], 28),
+          row(["環狀線", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"CF*",'${date.sheet}'!H3:H${lastDataRow})` }], [0, 0], 28),
+          row(["(代辦)浩然敬老院重建工程", { formula: `SUMIF('${date.sheet}'!B3:B${lastDataRow},"IZ*",'${date.sheet}'!H3:H${lastDataRow})` }], [7, 7], 28),
+          row(["", ""], [6], 8),
+          row(["泰籍移工", { formula: `SUM('${date.sheet}'!D3:D${lastDataRow})` }], [8, 8], 28),
+          row(["印尼籍移工", { formula: `SUM('${date.sheet}'!E3:E${lastDataRow})` }], [8, 8], 28),
+          row(["菲律賓籍移工", { formula: `SUM('${date.sheet}'!F3:F${lastDataRow})` }], [8, 8], 28),
+          row(["越南籍移工", { formula: `SUM('${date.sheet}'!G3:G${lastDataRow})` }], [8, 8], 28),
+        ];
+
+        const statsSheetXml = sheetXml(statsRows.map((r) => Object.assign(r.cells, { height: r.height })), {
+          cols: [14, 12, 16, 10, 10, 12, 10, 12, 44],
+          merges: ["A1:I1"],
+        });
+        const analysisSheetXml = sheetXml(analysisRows.map((r) => Object.assign(r.cells, { height: r.height })), {
+          cols: [36, 24],
+          merges: ["A1:B1"],
+        });
+        const files = makeWorkbookXml(date, statsSheetXml, analysisSheetXml);
+        const analysisFiles = makeNationalityAnalysisWorkbookXml(date, analysisSheetXml, statsSheetXml);
+        return { blob: makeZip(files), analysisBlob: makeZip(analysisFiles), date };
+      }
+
+      function buildManagementWorkbookBlob() {
+        const date = rocDateParts();
+        const rows = collectManagementRows();
+        const rocYear = date.sheet.slice(0, -4);
+        const managementRows = [
+          row(["臺北市政府捷運工程局所屬區段標僱用移工管理稽查表", "", ""], [1], 30),
+          row(["工程處", "區段標", "稽查日期"], [2], 26),
+        ];
+        rows.forEach((item) => {
+          managementRows.push(row([
+            item.office,
+            item.code,
+            item.dates,
+          ], [0, 5, 4], 28));
+        });
+        const worksheetXml = sheetXml(managementRows.map((r) => Object.assign(r.cells, { height: r.height })), {
+          cols: [18, 16, 58],
+          merges: ["A1:C1"],
+        });
+        const files = makeSingleSheetWorkbookXml(rocYear, worksheetXml);
+        return { blob: makeZip(files), date, rocYear };
+      }
+
+      function download(kind) {
+        try {
+          statusEl.textContent = "正在產生 Excel...";
+          const result = kind === "management" ? buildManagementWorkbookBlob() : buildWorkbookBlob();
+          const date = result.date;
+          const blob = kind === "analysis" ? result.analysisBlob : result.blob;
+          const filename = kind === "stats"
+            ? `移工人數統計表-${date.sheet}.xlsx`
+            : kind === "analysis"
+              ? `移工國籍人數分析-${date.sheet}.xlsx`
+              : `移工管理次數統計表-${result.rocYear}.xlsx`;
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = filename;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+          statusEl.textContent = `已下載：${filename}`;
+        } catch (error) {
+          statusEl.textContent = error.message;
+        }
+      }
+
+      dateInput.value = lastDayOfCurrentMonth();
+      renderRows();
+      renderManagementRows();
+      restoreCloudConfig();
+      restoreDraft();
+      updateTotals();
+      dateInput.addEventListener("change", saveDraft);
+      cloudEndpointInput.addEventListener("change", saveCloudConfig);
+      reporterInput.addEventListener("input", () => { saveCloudConfig(); saveDraft(); });
+      reportNoteInput.addEventListener("input", () => { saveCloudConfig(); saveDraft(); });
+      document.querySelector("#importPrevious").addEventListener("click", () => importFilesInput.click());
+      importFilesInput.addEventListener("change", importPreviousFiles);
+      document.querySelector("#clearSavedData").addEventListener("click", clearSavedData);
+      document.querySelector("#submitCloud").addEventListener("click", submitCloudData);
+      document.querySelector("#loadCloudLatest").addEventListener("click", loadCloudLatest);
+      document.querySelector("#downloadStats").addEventListener("click", () => download("stats"));
+      document.querySelector("#downloadAnalysis").addEventListener("click", () => download("analysis"));
+      document.querySelector("#downloadManagement").addEventListener("click", () => download("management"));
+    </script>
   </body>
 </html>
