@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="各標承辦人移工資料填列表公開下載頁" />
+    <title>各標承辦人移工資料填列表</title>
+    <style>
+      :root {
+        color: #172033;
+        background: #edf3fb;
+        font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      main { width: min(1180px, calc(100vw - 28px)); margin: 28px auto; }
+      .hero {
+        border-radius: 18px;
+        padding: 28px;
+        color: #fff;
+        background: linear-gradient(135deg, #163b8f, #2466bf);
+        box-shadow: 0 18px 48px rgba(22, 59, 143, .2);
+      }
+      h1 { margin: 0 0 10px; font-size: clamp(26px, 4vw, 40px); }
+      .hero p { margin: 0; color: #e4edff; line-height: 1.7; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 10px 18px;
+        border-radius: 10px;
+        color: #15398a;
+        background: #fff200;
+        font-weight: 800;
+        text-decoration: none;
+      }
+      .card {
+        margin-top: 20px;
+        border: 1px solid #d5dfef;
+        border-radius: 16px;
+        padding: 22px;
+        background: #fff;
+        box-shadow: 0 10px 28px rgba(42, 61, 94, .08);
+      }
+      h2 { margin: 0 0 14px; color: #163b8f; }
+      ol { margin: 0; padding-left: 1.5em; line-height: 1.9; }
+      .sheet { overflow-x: auto; }
+      table { width: 100%; min-width: 1050px; border-collapse: collapse; }
+      th, td { border: 1px solid #b8c7e0; padding: 10px; text-align: left; }
+      th { background: #fff200; white-space: nowrap; }
+      td.input { background: #fffceb; }
+      td.total { background: #bfe4f5; text-align: right; }
+      .note { margin-top: 12px; color: #526078; line-height: 1.7; }
+      footer { padding: 22px 4px; color: #68758c; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>各標承辦人移工資料填列表</h1>
+        <p>請下載 Excel 範本後填寫。表格預設保留一列；若需新增標別，在資料列最後一格按 Tab，即可自動新增並沿用格式與施工人數公式。</p>
+        <div class="actions">
+          <a class="button" href="./各標承辦人移工資料填列表.xlsx" download>下載 Excel 填列表</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>填寫方式</h2>
+        <ol>
+          <li>下載並開啟 Excel。</li>
+          <li>填寫統計日期、填報人、電話或備註。</li>
+          <li>每一個區段標填一列；沒有該國籍移工可填 0 或留白。</li>
+          <li>如需新增標別，在最右側「稽查日期」儲存格按 Tab。</li>
+          <li>儲存檔案後交回彙整人員。</li>
+        </ol>
+      </section>
+
+      <section class="card sheet" aria-label="表格欄位預覽">
+        <h2>欄位預覽</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>工程處</th>
+              <th>區段標</th>
+              <th>廠商名稱</th>
+              <th>泰國人數</th>
+              <th>印尼人數</th>
+              <th>菲律賓人數</th>
+              <th>越南人數</th>
+              <th>施工人數</th>
+              <th>宿舍地址</th>
+              <th>稽查日期</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="input">第一區工程處</td>
+              <td class="input"></td>
+              <td class="input"></td>
+              <td class="input"></td>
+              <td class="input"></td>
+              <td class="input"></td>
+              <td class="input"></td>
+              <td class="total">自動加總</td>
+              <td class="input"></td>
+              <td class="input"></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">此頁為公開下載頁，不會收集或上傳承辦人填寫的內容。</p>
+      </section>
+
+      <footer>臺北市政府捷運工程局｜移工資料填列</footer>
+    </main>
+  </body>
+</html>
